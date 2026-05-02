@@ -17,6 +17,9 @@ migrate_working_dir/
 .env.local
 .env.*.local
 
+# Xcode config with secrets
+ios/Runner/Config.xcconfig
+
 # IntelliJ related
 *.iml
 *.ipr

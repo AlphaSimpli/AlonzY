@@ -68,7 +68,7 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We need your location to show rides on the map</string>
-	    <key>com.google.android.geo.API_KEY</key>
-    <string>AIzaSyDYfoLmHUDO1DPB4c7Ohip8b0HBGfUik5s</string>
+	<key>com.google.android.geo.API_KEY</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
 </dict>
 </plist>
