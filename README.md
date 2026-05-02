@@ -124,10 +124,10 @@ lib/
 
 ## 📱 Screenshots
 
-**Home Page**
-![Home Page](docs/screenshots/home.png)
-**Profile Page**
-![profile Page](docs/screenshots/profile.png)
+<p align="center">
+  <img src="docs/screenshots/home.png" width="300"/>
+  <img src="docs/screenshots/profile.png" width="300"/>
+</p>
 
 ### Key Features Screenshots:
 - **Login Screen**: User authentication interface
