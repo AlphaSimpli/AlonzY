@@ -124,7 +124,10 @@ lib/
 
 ## 📱 Screenshots
 
-[Add app interface screenshots here]
+**Home Page**
+![Home Page](docs/screenshots/home.png)
+**Profile Page**
+![profile Page](docs/screenshots/profile.png)
 
 ### Key Features Screenshots:
 - **Login Screen**: User authentication interface
