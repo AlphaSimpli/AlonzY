@@ -10,27 +10,45 @@ A modern Flutter application for ride-sharing built with Supabase as the backend
 - **Manage Bookings**: View and track your ride bookings as a passenger
 - **Driver Bookings**: Manage booking requests for rides you've posted
 - **User Profiles**: Manage personal profile information and preferences
-- **Real-Time Mapping**: Google Maps integration for location selection
+- **Real-Time Mapping**: MapLibre GL integration for location selection and ride tracking
 - **Geolocation**: Automatic location detection and geocoding
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Flutter with Material Design
+- **Frontend**: Flutter with Material 3
 - **Backend**: Supabase (PostgreSQL + Auth)
 - **Maps & Location**:
-  - Google Maps Flutter (v2.5.0)
+  - MapLibre GL (v0.20.0) with free OpenFreeMap tiles — no API keys required
   - Geolocator (v9.0.0)
-  - Geocoding (v2.1.0)
+  - Geocoding (Nominatim/OpenStreetMap)
 - **State Management**: Stream builders with Supabase real-time subscriptions
 - **Dart SDK**: ^3.11.4
+
+## 🗺️ Map Architecture
+
+The map layer is fully decoupled behind a provider-agnostic abstraction so it
+can be swapped without touching business logic:
+
+```
+lib/maps/
+├── map_types.dart        # MapLocation, MapMarkerData, MapPolylineData, MapViewConfig
+├── map_controller.dart   # AppMapController — abstract controller interface
+├── map_view.dart         # MapView — abstract widget interface
+├── app_maps.dart         # AppMaps — global provider registry
+└── providers/
+    └── maplibre/         # MapLibre implementation (default provider)
+```
+
+Screens request maps through `AppMaps.createView(...)` and interact only with
+`AppMapController`. To switch to Google Maps later, add a `GoogleMapProvider`
+under `providers/` and call `AppMaps.configure(provider)` once at startup.
 
 ## 📦 Core Dependencies
 
 - `supabase_flutter: ^2.12.2` - Backend and real-time database
-- `google_maps_flutter: ^2.5.0` - Maps functionality
+- `maplibre_gl: ^0.20.0` - Map rendering and real-time driver tracking
 - `flutter_dotenv: ^5.1.0` - Environment configuration
 - `geolocator: ^9.0.0` - GPS and location services
-- `geocoding: ^2.1.0` - Address to coordinates conversion
 
 ## 🚀 Getting Started
 
@@ -70,15 +88,11 @@ A modern Flutter application for ride-sharing built with Supabase as the backend
    cd ..
    ```
 
-5. **Configure Google Maps**
-   
-   **For iOS:**
-   - Add your Google Maps API key to `ios/Runner/GeneratedPluginRegistrant.m`
-   - See [Google Maps for iOS documentation](https://developers.google.com/maps/documentation/ios-sdk/get-api-key)
-   
-   **For Android:**
-   - Add your Google Maps API key to `android/app/src/main/AndroidManifest.xml`
-   - See [Google Maps for Android documentation](https://developers.google.com/maps/documentation/android-sdk/get-api-key)
+5. **Configure Maps**
+   - MapLibre GL uses the free OpenFreeMap tile service by default and needs
+     **no API keys**. Location permissions are already configured in
+     `AndroidManifest.xml` and `Info.plist`.
+   - To switch providers later, implement a new `MapProvider` in `lib/maps/providers/`.
 
 6. **Run the app**
    ```bash
@@ -90,18 +104,24 @@ A modern Flutter application for ride-sharing built with Supabase as the backend
 ```
 lib/
 ├── main.dart              # App entry point with authentication
+├── theme/                 # Material 3 design system (colors, typography)
+├── maps/                  # Decoupled map abstraction (MapLibre by default)
 ├── screens/               # UI screens
 │   ├── login_page.dart
 │   ├── signup_page.dart
 │   ├── home_page.dart
 │   ├── search_rides_page.dart
+│   ├── search_map_page.dart
 │   ├── post_ride_page.dart
 │   ├── my_bookings_page.dart
 │   ├── driver_bookings_page.dart
-│   └── profile_page.dart
+│   ├── profile_page.dart
+│   └── location_picker_screen.dart
 ├── services/              # Business logic
 │   ├── auth_service.dart
-│   └── database_service.dart
+│   ├── database_service.dart
+│   ├── geocoding_service.dart
+│   └── map_service.dart
 └── widgets/               # Reusable UI components
 ```
 

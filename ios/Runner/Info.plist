@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to show real-time driver tracking and ride information</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to show rides on the map</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -66,9 +70,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We need your location to show rides on the map</string>
-	<key>com.google.android.geo.API_KEY</key>
-	<string>$(GOOGLE_MAPS_API_KEY)</string>
 </dict>
 </plist>

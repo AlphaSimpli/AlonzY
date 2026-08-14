@@ -43,9 +43,9 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
         loading = false;
       });
 
-      print("✅ Loaded ${rides.length} rides with bookings");
+      debugPrint("✅ Loaded ${rides.length} rides with bookings");
     } catch (e) {
-      print("❌ Error loading rides and bookings: $e");
+      debugPrint("❌ Error loading rides and bookings: $e");
       setState(() => loading = false);
 
       if (mounted) {

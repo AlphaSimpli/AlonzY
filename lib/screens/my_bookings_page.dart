@@ -38,9 +38,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         loading = false;
       });
 
-      print("✅ Loaded ${bookings.length} bookings");
+      debugPrint("✅ Loaded ${bookings.length} bookings");
     } catch (e) {
-      print("❌ Error loading bookings: $e");
+      debugPrint("❌ Error loading bookings: $e");
       setState(() => loading = false);
 
       if (mounted) {

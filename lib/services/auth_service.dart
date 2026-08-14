@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -11,41 +12,41 @@ class AuthService {
     String? lastName,
   }) async {
     try {
-      print("🔵 SUPABASE SIGNUP START");
-      print("Email: $email");
+      debugPrint("🔵 SUPABASE SIGNUP START");
+      debugPrint("Email: $email");
 
       final response = await supabase.auth.signUp(
         email: email,
         password: password,
       );
 
-      print("🟢 SIGNUP SUCCESS");
-      print("User: ${response.user?.email}");
-      print("Session: ${response.session}");
+      debugPrint("🟢 SIGNUP SUCCESS");
+      debugPrint("User: ${response.user?.email}");
+      debugPrint("Session: ${response.session}");
 
       // Profile is automatically created by database trigger (on_auth_user_created)
       // Optional: Update profile with additional info
       if (response.user != null && (firstName != null || lastName != null)) {
         await supabase.from('profiles').update({
-          if (firstName != null) 'first_name': firstName,
-          if (lastName != null) 'last_name': lastName,
+          'first_name': ?firstName,
+          'last_name': ?lastName,
         }).eq('id', response.user!.id);
 
-        print("✅ User profile updated with additional info");
+        debugPrint("✅ User profile updated with additional info");
       } else {
-        print("✅ User profile auto-created by trigger");
+        debugPrint("✅ User profile auto-created by trigger");
       }
 
       return response;
     } on AuthException catch (e) {
-      print("🔴 SUPABASE AUTH ERROR (SIGNUP)");
-      print("Message: ${e.message}");
-      print("Status: ${e.statusCode}");
+      debugPrint("🔴 SUPABASE AUTH ERROR (SIGNUP)");
+      debugPrint("Message: ${e.message}");
+      debugPrint("Status: ${e.statusCode}");
 
       throw Exception("Signup failed: ${e.message}");
     } catch (e) {
-      print("🔴 UNKNOWN ERROR (SIGNUP)");
-      print(e);
+      debugPrint("🔴 UNKNOWN ERROR (SIGNUP)");
+      debugPrint(e.toString());
 
       throw Exception("Unexpected error during signup");
     }
@@ -57,28 +58,28 @@ class AuthService {
     required String password,
   }) async {
     try {
-      print("🔵 SUPABASE LOGIN START");
-      print("Email: $email");
+      debugPrint("🔵 SUPABASE LOGIN START");
+      debugPrint("Email: $email");
 
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      print("🟢 LOGIN SUCCESS");
-      print("User: ${response.user?.email}");
-      print("Session: ${response.session}");
+      debugPrint("🟢 LOGIN SUCCESS");
+      debugPrint("User: ${response.user?.email}");
+      debugPrint("Session: ${response.session}");
 
       return response;
     } on AuthException catch (e) {
-      print("🔴 SUPABASE AUTH ERROR (LOGIN)");
-      print("Message: ${e.message}");
-      print("Status: ${e.statusCode}");
+      debugPrint("🔴 SUPABASE AUTH ERROR (LOGIN)");
+      debugPrint("Message: ${e.message}");
+      debugPrint("Status: ${e.statusCode}");
 
       throw Exception("Login failed: ${e.message}");
     } catch (e) {
-      print("🔴 UNKNOWN ERROR (LOGIN)");
-      print(e);
+      debugPrint("🔴 UNKNOWN ERROR (LOGIN)");
+      debugPrint(e.toString());
 
       throw Exception("Unexpected error during login");
     }
@@ -87,12 +88,12 @@ class AuthService {
   // SIGN OUT
   Future<void> signOut() async {
     try {
-      print("🔵 SIGNING OUT");
+      debugPrint("🔵 SIGNING OUT");
       await supabase.auth.signOut();
-      print("🟢 SIGN OUT SUCCESS");
+      debugPrint("🟢 SIGN OUT SUCCESS");
     } catch (e) {
-      print("🔴 SIGN OUT ERROR");
-      print(e);
+      debugPrint("🔴 SIGN OUT ERROR");
+      debugPrint(e.toString());
     }
   }
 

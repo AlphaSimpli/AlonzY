@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DatabaseService {
@@ -28,9 +29,9 @@ class DatabaseService {
         'is_passenger': isPassenger,
       });
 
-      print("✅ Profile created for $email");
+      debugPrint("✅ Profile created for $email");
     } catch (e) {
-      print("❌ Error creating profile: $e");
+      debugPrint("❌ Error creating profile: $e");
       rethrow;
     }
   }
@@ -46,7 +47,7 @@ class DatabaseService {
 
       return response;
     } catch (e) {
-      print("❌ Error fetching profile: $e");
+      debugPrint("❌ Error fetching profile: $e");
       return null;
     }
   }
@@ -71,9 +72,9 @@ class DatabaseService {
 
       await supabase.from('profiles').update(updates).eq('id', userId);
 
-      print("✅ Profile updated");
+      debugPrint("✅ Profile updated");
     } catch (e) {
-      print("❌ Error updating profile: $e");
+      debugPrint("❌ Error updating profile: $e");
       rethrow;
     }
   }
@@ -117,10 +118,10 @@ class DatabaseService {
         'notes': notes,
       }).select('id').single();
 
-      print("✅ Ride created: ${response['id']}");
+      debugPrint("✅ Ride created: ${response['id']}");
       return response['id'];
     } catch (e) {
-      print("❌ Error creating ride: $e");
+      debugPrint("❌ Error creating ride: $e");
       rethrow;
     }
   }
@@ -131,8 +132,17 @@ class DatabaseService {
     String? startLocation,
     String? endLocation,
     double? maxPrice,
+    int? minSeats,
   }) async {
     try {
+      // Debug logging
+      debugPrint("🔍 Searching rides with filters:");
+      debugPrint("   - afterDate: ${afterDate?.toIso8601String()}");
+      debugPrint("   - startLocation: $startLocation");
+      debugPrint("   - endLocation: $endLocation");
+      debugPrint("   - maxPrice: $maxPrice");
+      debugPrint("   - minSeats: $minSeats");
+
       var query = supabase
           .from('rides')
           .select(
@@ -151,8 +161,7 @@ class DatabaseService {
             vehicle_type,
             vehicle_plate,
             status,
-            notes,
-            profiles(first_name, last_name, rating, avatar_url)
+            notes
           '''
           )
           .eq('status', 'available')
@@ -178,11 +187,41 @@ class DatabaseService {
         query = query.lte('price_per_seat', maxPrice);
       }
 
-      final response = await query.order('departure_time', ascending: true);
+      // Filter by minimum available seats
+      if (minSeats != null && minSeats > 1) {
+        query = query.gte('available_seats', minSeats);
+      }
 
-      return List<Map<String, dynamic>>.from(response);
+      final response = await query.order('departure_time', ascending: true);
+      debugPrint("✅ Search returned ${response.length} rides");
+
+      // Fetch driver profiles for each ride. Supabase decodes nested/embedded
+      // rows as dynamic-keyed maps, so every record is re-typed explicitly to
+      // guarantee a `Map<String, dynamic>` for callers.
+      final ridesWithProfiles = <Map<String, dynamic>>[];
+      for (final rawRide in response) {
+        final ride = Map<String, dynamic>.from(rawRide);
+        try {
+          final driverId = ride['driver_id'];
+          final driverProfile = await supabase
+              .from('profiles')
+              .select('first_name, last_name, rating, avatar_url')
+              .eq('id', driverId)
+              .maybeSingle();
+
+          ride['profiles'] = driverProfile == null
+              ? <String, dynamic>{}
+              : Map<String, dynamic>.from(driverProfile);
+        } catch (e) {
+          debugPrint("⚠️ Could not fetch driver profile for ride ${ride['id']}: $e");
+          ride['profiles'] = <String, dynamic>{};
+        }
+        ridesWithProfiles.add(ride);
+      }
+
+      return ridesWithProfiles;
     } catch (e) {
-      print("❌ Error searching rides: $e");
+      debugPrint("❌ Error searching rides: $e");
       return [];
     }
   }
@@ -203,9 +242,11 @@ class DatabaseService {
           .eq('driver_id', driverId)
           .order('departure_time', ascending: true);
 
-      return List<Map<String, dynamic>>.from(response);
+      return response
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
     } catch (e) {
-      print("❌ Error fetching driver rides: $e");
+      debugPrint("❌ Error fetching driver rides: $e");
       return [];
     }
   }
@@ -215,9 +256,9 @@ class DatabaseService {
     try {
       await supabase.from('rides').update({'status': status}).eq('id', rideId);
 
-      print("✅ Ride status updated to $status");
+      debugPrint("✅ Ride status updated to $status");
     } catch (e) {
-      print("❌ Error updating ride status: $e");
+      debugPrint("❌ Error updating ride status: $e");
       rethrow;
     }
   }
@@ -254,10 +295,10 @@ class DatabaseService {
           .from('rides')
           .update({'available_seats': newAvailableSeats}).eq('id', rideId);
 
-      print("✅ Booking created: ${response['id']}");
+      debugPrint("✅ Booking created: ${response['id']}");
       return response['id'];
     } catch (e) {
-      print("❌ Error creating booking: $e");
+      debugPrint("❌ Error creating booking: $e");
       rethrow;
     }
   }
@@ -290,9 +331,11 @@ class DatabaseService {
           .eq('passenger_id', passengerId)
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(response);
+      return response
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
     } catch (e) {
-      print("❌ Error fetching bookings: $e");
+      debugPrint("❌ Error fetching bookings: $e");
       return [];
     }
   }
@@ -317,9 +360,11 @@ class DatabaseService {
           .eq('ride_id', rideId)
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(response);
+      return response
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
     } catch (e) {
-      print("❌ Error fetching ride bookings: $e");
+      debugPrint("❌ Error fetching ride bookings: $e");
       return [];
     }
   }
@@ -343,9 +388,9 @@ class DatabaseService {
           .from('rides')
           .update({'available_seats': restoredSeats}).eq('id', rideId);
 
-      print("✅ Booking cancelled");
+      debugPrint("✅ Booking cancelled");
     } catch (e) {
-      print("❌ Error cancelling booking: $e");
+      debugPrint("❌ Error cancelling booking: $e");
       rethrow;
     }
   }
@@ -360,7 +405,8 @@ class DatabaseService {
         .from('rides')
         .stream(primaryKey: ['id'])
         .map((records) => records
-            .where((row) => row['status'] == 'available')
+            .where((row) => ((row['available_seats'] as int?) ?? 0) > 0)
+            .map((row) => Map<String, dynamic>.from(row))
             .toList());
   }
 
@@ -371,6 +417,7 @@ class DatabaseService {
         .stream(primaryKey: ['id'])
         .map((records) => records
             .where((row) => row['passenger_id'] == passengerId)
+            .map((row) => Map<String, dynamic>.from(row))
             .toList());
   }
 }

@@ -18,6 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final dbService = DatabaseService();
 
   Map<String, dynamic>? userProfile;
+  List<Map<String, dynamic>> myRides = [];
   bool loading = true;
   bool isDriver = false;
 
@@ -33,14 +34,22 @@ class _ProfilePageState extends State<ProfilePage> {
       if (userId == null) throw Exception("User not authenticated");
 
       final profile = await dbService.getUserProfile(userId);
+      final isUserDriver = profile?['is_driver'] ?? false;
+
+      // Load driver's rides if in driver mode
+      List<Map<String, dynamic>> rides = [];
+      if (isUserDriver) {
+        rides = await dbService.getMyRides(userId);
+      }
 
       setState(() {
         userProfile = profile;
-        isDriver = profile?['is_driver'] ?? false;
+        isDriver = isUserDriver;
+        myRides = rides;
         loading = false;
       });
     } catch (e) {
-      print("❌ Error loading profile: $e");
+      debugPrint("❌ Error loading profile: $e");
       setState(() => loading = false);
 
       if (mounted) {
@@ -224,19 +233,120 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                     ),
                   ],
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-                  // Logout
+                  // My Posted Rides Section (Driver Only)
+                  if (isDriver) ...[
+                    Text("My Posted Rides", style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 12),
+                    if (myRides.isEmpty)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              "No rides posted yet",
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ...myRides.map((ride) {
+                        final departureTime = DateTime.parse(ride['departure_time'] as String);
+                        final timeStr = "${departureTime.hour}:${departureTime.minute.toString().padLeft(2, '0')}";
+                        final dateStr = "${departureTime.month}/${departureTime.day}/${departureTime.year}";
+                        final statusColor = ride['status'] == 'available' ? Colors.green : Colors.orange;
+                        
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Route
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            ride['start_location'] ?? "Start",
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const Text("↓", style: TextStyle(fontSize: 12)),
+                                          Text(
+                                            ride['end_location'] ?? "End",
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Chip(
+                                          label: Text(ride['status'] ?? 'unknown',
+                                              style: const TextStyle(
+                                                  color: Colors.white, fontSize: 12)),
+                                          backgroundColor: statusColor,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          dateStr,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        Text(
+                                          timeStr,
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                // Details row
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.event_seat, size: 16),
+                                        const SizedBox(width: 4),
+                                        Text("${ride['available_seats']} seats available"),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.attach_money, size: 16),
+                                        Text("${ride['price_per_seat']}/seat"),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 24),
+                  ],
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         await authService.signOut();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("✅ Logged out")),
-                          );
-                        }
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("✅ Logged out")),
+                        );
                       },
                       icon: const Icon(Icons.logout),
                       label: const Text("Logout"),
