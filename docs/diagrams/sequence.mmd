@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor Passager
+    participant UI as Flutter SearchRidesPage
+    participant DBService as DatabaseService
+    participant Supabase as Supabase PostgreSQL
+    participant Matcher as MatchingService Dart
+    participant OSRM as API OSRM
+
+    Passager->>UI: Saisit origine, destination, date, places, prix
+    Passager->>UI: Lance la recherche
+    UI->>DBService: searchRides(filtres)
+    DBService->>Supabase: SELECT rides disponibles + profils conducteur
+    Note over DBService,Supabase: Filtre disponibilite, date, villes/adresses, prix et places puis tri par depart
+    Supabase-->>DBService: Liste des trajets
+    DBService-->>UI: Liste de Ride
+    UI-->>Passager: Affiche les trajets
+
+    opt Extension d'appariement routier proposee (pas encore branchee)
+        UI->>Matcher: calculateMatchScore(offer, request)
+        Note over UI,Matcher: Le MatchingService actuel calcule une estimation Haversine et un score en Dart.
+        Matcher->>OSRM: Route directe origine conducteur -> destination conducteur
+        OSRM-->>Matcher: Distance et durée routières de référence
+        Matcher->>OSRM: Route via prise en charge et dépose passager
+        OSRM-->>Matcher: Distance et durée avec arrêts intermédiaires
+        Matcher->>Matcher: Calcule détour = route avec arrêts - route directe
+        Matcher->>Matcher: Combine détour, écart horaire et préférences
+        Matcher-->>UI: MatchingResult (score, détour, éligibilité)
+        UI-->>Passager: Trie/présente les trajets correspondants
+    end
+
+    Note over Supabase,OSRM: Le code actuel ne possède pas encore de client OSRM ni de table user_preferences.
+    Note over Matcher,UI: MatchingService existe, mais la recherche actuelle ne l'appelle pas.

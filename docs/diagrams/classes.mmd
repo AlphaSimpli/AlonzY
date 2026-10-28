@@ -1,0 +1,72 @@
+classDiagram
+    direction LR
+
+    class AuthUser {
+        +UUID id
+        +String email
+        +DateTime created_at
+    }
+
+    class UserProfile {
+        +UUID id
+        +String first_name
+        +String last_name
+        +String phone
+        +String avatar_url
+        +Boolean is_driver
+        +Boolean is_passenger
+        +Decimal rating
+        +String contact_preference
+        +String govt_id_status
+    }
+
+    class Ride {
+        +UUID id
+        +UUID driver_id
+        +String origin_city
+        +String origin_address
+        +Double origin_lat
+        +Double origin_lng
+        +String destination_city
+        +String destination_address
+        +Double destination_lat
+        +Double destination_lng
+        +DateTime departure_time
+        +Integer available_seats
+        +Decimal price_per_seat
+        +String status
+        +Boolean pets_allowed
+        +String luggage_policy
+        +Boolean instant_booking
+    }
+
+    class Booking {
+        +UUID id
+        +UUID ride_id
+        +UUID passenger_id
+        +Integer seats_booked
+        +Decimal total_price
+        +String pickup_location
+        +String status
+        +DateTime created_at
+    }
+
+    class UserPreferences {
+        <<proposed, absent from current schema>>
+        +UUID user_id
+        +Boolean is_smoker
+        +Boolean has_pet
+        +Boolean has_large_luggage
+        +String preferred_contact_method
+    }
+
+    AuthUser "1" --> "0..1" UserProfile : profile id
+    UserProfile "1" --> "0..*" Ride : driver
+    UserProfile "1" --> "0..*" Booking : passenger
+    Ride "1" --> "0..*" Booking : reservations
+    UserProfile "1" .. "0..1" UserPreferences : future preference profile
+
+    note for UserProfile "Dans l'application, le modèle Dart AppUser correspond à public.profiles. Son id référence auth.users.id."
+    note for Ride "Entité public.rides. Les coordonnées sont stockées séparément en latitude et longitude."
+    note for Booking "Entité public.bookings. Le statut contrôle notamment les réservations confirmées."
+    note for UserPreferences "Cette table n'existe pas dans les migrations actuelles. Les préférences du matching sont actuellement portées par PassengerRequest, en mémoire."

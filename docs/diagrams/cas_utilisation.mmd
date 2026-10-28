@@ -1,0 +1,47 @@
+flowchart LR
+    Conducteur([Conducteur])
+    Passager([Passager])
+    Contact([Contact de sécurité])
+
+    subgraph App["Application AlonzY"]
+        UC1((Créer et publier un trajet))
+        UC2((Gérer les demandes de réservation))
+        UC3((Rechercher un trajet))
+        UC4((Calculer compatibilité et détour))
+        UC5((Réserver une place))
+        UC6((Consulter le trajet sur la carte))
+        UC7((Partager sa position pendant le trajet))
+        UC8((Suivre la position partagée))
+        UC9((Contacter conducteur ou passager))
+        UC10((Recevoir la position du trajet))
+    end
+
+    Conducteur --- UC1
+    Conducteur --- UC2
+    Conducteur --- UC6
+    Conducteur --- UC7
+    Conducteur --- UC8
+    Conducteur --- UC9
+
+    Passager --- UC3
+    Passager --- UC4
+    Passager --- UC5
+    Passager --- UC6
+    Passager --- UC7
+    Passager --- UC8
+    Passager --- UC9
+
+    Contact --- UC10
+
+    UC3 -. "inclut (extension proposée)" .-> UC4
+    UC7 -. "partage explicite requis" .-> UC8
+    UC7 -. "extension avec autorisation dédiée" .-> UC10
+
+    classDef implemented fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    classDef proposed fill:#fff3e0,stroke:#ef6c00,color:#7f3b00,stroke-dasharray: 5 5;
+
+    class UC1,UC2,UC3,UC5,UC6,UC7,UC8,UC9 implemented;
+    class UC4,UC10 proposed;
+
+    Note["Légende : vert = parcours présents dans le projet ; orange pointillé = capacité à compléter. Le Contact de sécurité n'a pas d'accès dans les règles RLS actuelles. OSRM et user_preferences ne sont pas implémentés."]:::proposed
+    App --- Note

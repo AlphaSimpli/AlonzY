@@ -1,0 +1,77 @@
+classDiagram
+    direction TB
+
+    class PassengerRequest {
+        +String id
+        +Coordinate pickup
+        +Coordinate dropoff
+        +DateTime preferredTime
+        +Boolean isSmoker
+        +Boolean hasPet
+        +Boolean hasLargeLuggage
+    }
+
+    class RideOffer {
+        +String id
+        +Coordinate start
+        +Coordinate end
+        +DateTime departureTime
+        +Integer availableSeats
+        +Boolean allowsSmoking
+        +Boolean acceptsPets
+        +Boolean hasLargeTrunk
+    }
+
+    class MatchingService {
+        +calculateMatchScore(offer, request) MatchingResult
+        -calculateTotalDetourKm(offer, request) Double
+        -calculateGeographicScore(detourKm) Double
+        -calculateTimeScore(minutes) Double
+        -calculatePreferenceScore(offer, request) Double
+    }
+
+    class MatchingResult {
+        +Double score
+        +String badgeLabel
+        +Double detourKm
+        +Integer timeDifferenceMinutes
+        +Boolean isEligible
+    }
+
+    class DetourCalculator {
+        <<current, straight-line approximation>>
+        +calculatePickupAndDropoffDistance(offer, request) Double
+    }
+
+    class RoadRouteService {
+        <<proposed OSRM integration>>
+        +getRoadDistance(coordinates) RoadRoute
+        +getRoadDuration(coordinates) Duration
+    }
+
+    class RoadRoute {
+        +List~Coordinate~ geometry
+        +Double distanceKm
+        +Duration duration
+    }
+
+    class Coordinate {
+        +Double latitude
+        +Double longitude
+    }
+
+    PassengerRequest "1" --> "1" Coordinate : pickup
+    PassengerRequest "1" --> "1" Coordinate : dropoff
+    RideOffer "1" --> "1" Coordinate : origin
+    RideOffer "1" --> "1" Coordinate : destination
+    MatchingService ..> PassengerRequest : evaluates
+    MatchingService ..> RideOffer : compares
+    MatchingService ..> MatchingResult : returns
+    MatchingService ..> DetourCalculator : current distance estimate
+    RoadRouteService ..> RoadRoute : proposed route response
+    RoadRouteService ..> Coordinate : route waypoints
+
+    note for MatchingService "Le score Dart combine géographie (50 points), horaire (35), préférences (15) et pénalité de 20 points en cas d'incompatibilité animal/bagages. Le résultat est borné entre 0 et 100."
+    note for DetourCalculator "MatchingService utilise actuellement la formule Haversine entre départ/prise en charge et arrivée/dépose. Ce n'est pas un détour routier OSRM."
+    note for RoadRouteService "OSRM n'est pas actuellement appelé par le code. Pour un détour routier réel, comparer le trajet direct au trajet avec prise en charge et dépose insérées dans l'itinéraire."
+    note for MatchingResult "Le service est actuellement autonome et n'est pas invoqué par SearchRidesPage ni par DatabaseService.searchRides."
