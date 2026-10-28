@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../maps/map_types.dart';
+import '../models/ride.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/location_autocomplete_field.dart';
+import 'ride_details_page.dart';
 
 /// Ride search with a standard rideshare flow.
 ///
 /// The user fills in Origin, Destination, Date and Seats using live location
 /// autocomplete, then taps "Search rides" to query available rides. Results are
-/// listed inline below the search form. The map is never opened implicitly:
-/// it only appears once a real address has been selected by the user.
+/// listed inline, sorted by departure time. Tapping a ride opens its detail
+/// page (route preview, driver profile, policies) for booking. The map is
+/// never opened implicitly: it only appears on the detail page once a real
+/// address has been selected.
 class SearchRidesPage extends StatefulWidget {
   const SearchRidesPage({super.key});
 
@@ -31,7 +35,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   DateTime? _selectedDate;
   int _minSeats = 1;
 
-  List<Map<String, dynamic>> _searchResults = [];
+  List<Ride> _searchResults = [];
   bool _loading = false;
   bool _hasSearched = false;
 
@@ -78,16 +82,13 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     });
 
     try {
-      // Use just the date part (at midnight) to include all rides from the
-      // selected day onwards.
-      final now = DateTime.now();
-      final dateTime = _selectedDate != null
-          ? DateTime(
+      final dateTime = _selectedDate == null
+          ? null
+          : DateTime(
               _selectedDate!.year,
               _selectedDate!.month,
               _selectedDate!.day,
-            )
-          : DateTime(now.year, now.month, now.day);
+            );
 
       final double? maxPrice = _maxPriceController.text.isNotEmpty
           ? double.tryParse(_maxPriceController.text)
@@ -122,97 +123,14 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     }
   }
 
-  void _showBookingDialog(BuildContext context, Map<String, dynamic> ride) {
-    int seatsToBook = 1;
-    final availableSeats = (ride['available_seats'] as num?)?.toInt() ?? 1;
-    final pricePerSeat = (ride['price_per_seat'] as num?)?.toDouble() ?? 0;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text("Book Ride"),
-        content: StatefulBuilder(
-          builder: (dialogContext, setDialogState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "${ride['start_location']} → ${ride['end_location']}",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("Seats:"),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () {
-                            if (seatsToBook > 1) {
-                              setDialogState(() => seatsToBook--);
-                            }
-                          },
-                        ),
-                        Text("$seatsToBook"),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () {
-                            if (seatsToBook < availableSeats) {
-                              setDialogState(() => seatsToBook++);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Total: \$${(pricePerSeat * seatsToBook).toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              try {
-                final totalPrice = pricePerSeat * seatsToBook;
-                final bookingId = await _dbService.createBooking(
-                  rideId: ride['id'],
-                  seatsBooked: seatsToBook,
-                  totalPrice: totalPrice,
-                );
-
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("✅ Booking confirmed! ID: $bookingId")),
-                );
-                _searchRides(); // Refresh search results
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("❌ Booking failed: $e")),
-                );
-              }
-            },
-            child: const Text("Book Now"),
-          ),
-        ],
-      ),
+  Future<void> _openRideDetails(Ride ride) async {
+    final booked = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => RideDetailsPage(ride: ride)),
     );
+    if (booked == true && mounted) {
+      _searchRides(); // Refresh seat availability after a booking.
+    }
   }
 
   @override
@@ -246,9 +164,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                     label: 'From',
                     icon: Icons.trip_origin,
                     placeholder: 'Leaving from…',
-                    onSelected: (location, address) =>
+                    onSelected: (location, address, city) =>
                         setState(() => _startLocation = location),
-                    onCleared: () => setState(() => _startLocation = null),
+                      onCleared: () => setState(() => _startLocation = null),
                   ),
                   const SizedBox(height: 4),
                   Align(
@@ -268,9 +186,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                     label: 'To',
                     icon: Icons.place,
                     placeholder: 'Going to…',
-                    onSelected: (location, address) =>
+                    onSelected: (location, address, city) =>
                         setState(() => _endLocation = location),
-                    onCleared: () => setState(() => _endLocation = null),
+                      onCleared: () => setState(() => _endLocation = null),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -335,7 +253,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (!_hasSearched)
-            _EmptyState(
+            const _EmptyState(
               icon: Icons.search,
               title: 'Search for a ride',
               message:
@@ -351,7 +269,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
             for (final ride in _searchResults)
               _RideCard(
                 ride: ride,
-                onBook: () => _showBookingDialog(context, ride),
+                onTap: () => _openRideDetails(ride),
               ),
         ],
       ),
@@ -396,104 +314,109 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _RideCard extends StatelessWidget {
-  const _RideCard({required this.ride, required this.onBook});
+  const _RideCard({required this.ride, required this.onTap});
 
-  final Map<String, dynamic> ride;
-  final VoidCallback onBook;
+  final Ride ride;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final driver = ride['profiles'] is Map
-        ? Map<String, dynamic>.from(ride['profiles'] as Map)
-        : <String, dynamic>{};
-    final departureTime =
-        DateTime.tryParse(ride['departure_time']?.toString() ?? '');
-    final timeUntilDeparture =
-        departureTime?.difference(DateTime.now());
-    final price = (ride['price_per_seat'] as num?)?.toDouble() ?? 0;
-    final seats = (ride['available_seats'] as num?)?.toInt() ?? 0;
+    final driver = ride.driver;
+    final timeUntilDeparture = ride.departureTime.difference(DateTime.now());
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          backgroundColor: Colors.blue[300],
-          child: const Icon(Icons.directions_car, color: Colors.white),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${ride['start_location']} → ${ride['end_location']}",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  if (timeUntilDeparture != null)
-                    Text(
-                      "Departs in ${_formatDuration(timeUntilDeparture)}",
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  "\$${price.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "$seats seats",
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.person, size: 16),
-                  const SizedBox(width: 4),
-                  Flexible(
+                  CircleAvatar(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                     child: Text(
-                      "${driver['first_name'] ?? 'Driver'} "
-                      "(${driver['rating'] ?? 5.0}⭐)",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      driver?.initials ?? 'D',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "${ride.originCity.isEmpty ? 'Unknown city' : ride.originCity}"
+                          " → ${ride.destinationCity.isEmpty ? 'Unknown city' : ride.destinationCity}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "${driver?.displayName ?? 'Driver'} · "
+                          "${(driver?.rating ?? 5.0).toStringAsFixed(1)}⭐",
+                          style: Theme.of(context).textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        "\$${ride.pricePerSeat.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${ride.availableSeats} seats",
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              ElevatedButton(
-                onPressed: onBook,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _LocationTag(icon: Icons.trip_origin, text: ride.originAddress),
+                  _LocationTag(icon: Icons.place, text: ride.destinationAddress),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Divider(color: AppColors.divider.withValues(alpha: 0.6)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.schedule,
+                      size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _departsLabel(timeUntilDeparture),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
-                ),
-                child: const Text("Book"),
+                  const Icon(Icons.chevron_right, size: 18),
+                ],
               ),
             ],
           ),
@@ -502,12 +425,30 @@ class _RideCard extends StatelessWidget {
     );
   }
 
-  static String _formatDuration(Duration duration) {
+  static String _departsLabel(Duration duration) {
     if (duration.isNegative) return "Departed";
     if (duration.inHours > 0) {
-      return "${duration.inHours}h ${duration.inMinutes % 60}m";
+      return "Departs in ${duration.inHours}h ${duration.inMinutes % 60}m";
     }
-    return "${duration.inMinutes}m";
+    return "Departs in ${duration.inMinutes}m";
+  }
+}
+
+class _LocationTag extends StatelessWidget {
+  const _LocationTag({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 15),
+      label: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 220),
+        child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+    );
   }
 }
 

@@ -1,0 +1,10 @@
+{
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "chat.tools.terminal.autoApprove": {
+        "dart": true,
+        "true": true,
+        "mkdir": true,
+        "supabase": true,
+        "flutter": true
+    }
+}

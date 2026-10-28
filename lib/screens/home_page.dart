@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'chat_list_page.dart';
 import 'my_bookings_page.dart';
 import 'post_ride_page.dart';
 import 'profile_page.dart';
@@ -21,6 +22,7 @@ class _HomePageState extends State<HomePage> {
     const SearchRidesPage(),
     const PostRidePage(),
     const MyBookingsPage(),
+    const ChatListPage(),
     const ProfilePage(),
   ];
 
@@ -34,36 +36,134 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       // IndexedStack keeps each tab's state alive when switching tabs.
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
+      bottomNavigationBar: _FloatingNavigationBar(
+        currentIndex: _currentIndex,
         onDestinationSelected: _onTabSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.add_circle_outline),
-            selectedIcon: Icon(Icons.add_circle),
-            label: 'Post',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Bookings',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+      ),
+    );
+  }
+}
+
+class _FloatingNavigationBar extends StatelessWidget {
+  const _FloatingNavigationBar({
+    required this.currentIndex,
+    required this.onDestinationSelected,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  static const destinations = [
+    (icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
+    (icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Search'),
+    (icon: Icons.add_circle_outline, activeIcon: Icons.add_circle, label: 'Post'),
+    (
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long,
+      label: 'Bookings',
+    ),
+    (
+      icon: Icons.chat_bubble_outline,
+      activeIcon: Icons.chat_bubble,
+      label: 'Chat',
+    ),
+    (icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
           ),
         ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          for (var index = 0; index < destinations.length; index++)
+            Expanded(
+              child: _FloatingNavigationDestination(
+                destination: destinations[index],
+                isSelected: index == currentIndex,
+                onTap: () => onDestinationSelected(index),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FloatingNavigationDestination extends StatelessWidget {
+  const _FloatingNavigationDestination({
+    required this.destination,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final ({IconData icon, IconData activeIcon, String label}) destination;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foregroundColor = isSelected ? AppColors.primary : Colors.black87;
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: destination.label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(30),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? destination.activeIcon : destination.icon,
+                  color: foregroundColor,
+                  size: 20,
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    destination.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: foregroundColor,
+                      fontSize: 10.5,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -110,33 +210,19 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.gradientStart, AppColors.gradientEnd],
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(Icons.directions_car, color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Alonzy', style: Theme.of(context).textTheme.titleLarge),
-            Text(
-              'Shared rides, made simple',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Image.asset(
+        'assets/images/alonzy_logo.png',
+        height: 72,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return const Text(
+            'AlonzY',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          );
+        },
+      ),
     );
   }
 }

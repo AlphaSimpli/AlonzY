@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.rides (
   departure_time TIMESTAMP WITH TIME ZONE NOT NULL,
   available_seats INTEGER NOT NULL CHECK (available_seats > 0),
   price_per_seat DECIMAL(10, 2) NOT NULL,
-  vehicle_type TEXT NOT NULL (e.g., 'sedan', 'suv', 'van'),
+  vehicle_type TEXT NOT NULL,
   vehicle_plate TEXT,
   status TEXT DEFAULT 'available' CHECK (status IN ('available', 'in_progress', 'completed', 'cancelled')),
   notes TEXT,

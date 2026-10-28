@@ -36,7 +36,8 @@ class LocationAutocompleteField extends StatefulWidget {
   final String label;
   final IconData icon;
   final String placeholder;
-  final void Function(MapLocation location, String address)? onSelected;
+  final void Function(MapLocation location, String address, String? city)?
+      onSelected;
   final VoidCallback? onCleared;
   final TextInputAction textInputAction;
   final bool autofocus;
@@ -111,7 +112,11 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
     widget.controller.text = suggestion.displayName;
     widget.focusNode?.unfocus();
     setState(() => _suggestions = const []);
-    widget.onSelected?.call(suggestion.location, suggestion.displayName);
+    widget.onSelected?.call(
+      suggestion.location,
+      suggestion.displayName,
+      suggestion.city,
+    );
   }
 
   void _clear() {

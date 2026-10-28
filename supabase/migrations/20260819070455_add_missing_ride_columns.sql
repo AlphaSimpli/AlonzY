@@ -1,0 +1,11 @@
+ALTER TABLE public.rides
+  ADD COLUMN IF NOT EXISTS vehicle_make TEXT,
+  ADD COLUMN IF NOT EXISTS vehicle_model TEXT,
+  ADD COLUMN IF NOT EXISTS vehicle_color TEXT,
+  ADD COLUMN IF NOT EXISTS pets_allowed BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS luggage_policy TEXT NOT NULL DEFAULT 'moderate';
+
+ALTER TABLE public.rides
+  ADD COLUMN IF NOT EXISTS instant_booking BOOLEAN DEFAULT FALSE;
+
+NOTIFY pgrst, 'reload schema';

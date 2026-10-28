@@ -106,15 +106,19 @@ lib/
 ├── main.dart              # App entry point with authentication
 ├── theme/                 # Material 3 design system (colors, typography)
 ├── maps/                  # Decoupled map abstraction (MapLibre by default)
+├── models/                # Strongly-typed domain models (AppUser, Ride, Booking, Review)
 ├── screens/               # UI screens
 │   ├── login_page.dart
 │   ├── signup_page.dart
 │   ├── home_page.dart
 │   ├── search_rides_page.dart
-│   ├── search_map_page.dart
+│   ├── ride_details_page.dart
 │   ├── post_ride_page.dart
 │   ├── my_bookings_page.dart
 │   ├── driver_bookings_page.dart
+│   ├── chat_list_page.dart
+│   ├── chat_page.dart
+│   ├── edit_profile_page.dart
 │   ├── profile_page.dart
 │   └── location_picker_screen.dart
 ├── services/              # Business logic
@@ -123,6 +127,9 @@ lib/
 │   ├── geocoding_service.dart
 │   └── map_service.dart
 └── widgets/               # Reusable UI components
+    ├── auth_layout.dart
+    ├── location_autocomplete_field.dart
+    └── verification_badges.dart
 ```
 
 ## 🔐 Security Features
@@ -168,19 +175,53 @@ The app leverages Supabase's real-time capabilities:
 ## 🗄️ Database Schema
 
 Key tables in Supabase:
-- `profiles` - User profile information
-- `rides` - Available rides posted by drivers
-- `bookings` - Passenger ride bookings
+- `profiles` - User profile information (bio, contact preference, vehicle details, verification status)
+- `rides` - Available rides posted by drivers (policies: pets, luggage, instant vs. approval booking)
+- `bookings` - Passenger ride bookings (pending → confirmed / rejected lifecycle)
+- `reviews` - Post-trip driver ratings (auto-averaged into `profiles.rating`)
+- `conversations` / `chat_messages` - Private driver-passenger real-time chat (RLS-protected)
 - `ride_routes` - Detailed route information with locations
 
-See `supabase/migrations/001_initial_schema.sql` for complete schema details.
+See `supabase/migrations/` for the schema. All three migrations must be applied:
+
+```bash
+# 001 - initial schema (profiles, rides, bookings, RLS)
+# 002 - production enhancements:
+#   - profiles: bio, contact_preference, vehicle details, nullable email (phone login)
+#   - rides: vehicle_make/model/color, pets_allowed, luggage_policy
+#   - reviews table + automatic driver rating aggregation
+#   - server-side seat accounting + overbooking protection triggers
+# 003 - chat & verification:
+#   - email/phone verification flags synced from auth.users, govt ID status
+#   - vehicle_year, verified_rides (completed trip counter)
+#   - rides.instant_booking + pending/rejected booking lifecycle
+#   - conversations + chat_messages tables with participant-only RLS and
+#     realtime replication (chat_messages, conversations)
+```
+
+## 💬 Real-Time Chat
+
+- Threads are created automatically from ride details, bookings and driver
+  booking management ("Message" actions).
+- Messages stream in via Supabase Realtime; conversations show the last
+  message preview with unread indicators and per-user read timestamps.
+- RLS restricts every conversation and message to its two participants.
+
+## 🛡️ User Verification
+
+- Email and phone verification are synced automatically from `auth.users`
+  confirmation state into `profiles`.
+- Government ID verification can be requested in Profile & Settings
+  (`govt_id_status`: none → pending → verified by support).
+- Badges (email / phone / government ID) appear on profiles, driver cards
+  and in chat headers. `verified_rides` counts completed trips per driver.
 
 ## ⚙️ Configuration
 
 ### Supabase Setup
 1. Create a Supabase project
-2. Set up authentication methods (email/password)
-3. Create required database tables
+2. Set up authentication methods (email/password, and optionally phone with an SMS provider)
+3. Apply both migrations from `supabase/migrations/`
 4. Enable Row-Level Security (RLS) policies
 5. Generate anon and service role keys
 

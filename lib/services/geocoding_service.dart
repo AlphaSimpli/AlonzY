@@ -10,8 +10,13 @@ import '../maps/map_types.dart';
 class PlaceSuggestion {
   final String displayName;
   final MapLocation location;
+  final String? city;
 
-  const PlaceSuggestion({required this.displayName, required this.location});
+  const PlaceSuggestion({
+    required this.displayName,
+    required this.location,
+    this.city,
+  });
 }
 
 /// Location helpers: device positioning, forward and reverse geocoding.
@@ -48,7 +53,7 @@ class GeocodingService {
     try {
       final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse'
-        '?format=json&lat=${location.latitude}&lon=${location.longitude}',
+        '?format=json&addressdetails=1&lat=${location.latitude}&lon=${location.longitude}',
       );
 
       final response = await http
@@ -59,18 +64,13 @@ class GeocodingService {
         final json = jsonDecode(response.body);
         final address = json['address'] as Map<String, dynamic>? ?? {};
         final road = address['road']?.toString() ?? '';
-        final city = (address['city'] ??
-                address['town'] ??
-                address['village'] ??
-                address['suburb'])
-            ?.toString() ??
-            '';
+        final city = _municipality(address);
         final state = address['state']?.toString() ?? '';
 
-        if (road.isNotEmpty && city.isNotEmpty) {
+        if (road.isNotEmpty && city != null) {
           return state.isNotEmpty ? '$road, $city, $state' : '$road, $city';
         }
-        if (city.isNotEmpty) return city;
+        if (city != null) return city;
 
         final displayName = json['display_name']?.toString();
         if (displayName != null && displayName.isNotEmpty) {
@@ -118,12 +118,17 @@ class GeocodingService {
         final lat = double.tryParse(item['lat']?.toString() ?? '');
         final lon = double.tryParse(item['lon']?.toString() ?? '');
         final displayName = item['display_name']?.toString() ?? '';
+        final address = item['address'] is Map
+            ? Map<String, dynamic>.from(item['address'] as Map)
+            : const <String, dynamic>{};
+        final city = _municipality(address);
 
         if (lat == null || lon == null || displayName.isEmpty) continue;
         suggestions.add(
           PlaceSuggestion(
             displayName: displayName,
             location: MapLocation(lat, lon),
+            city: city,
           ),
         );
       }
@@ -132,5 +137,22 @@ class GeocodingService {
       debugPrint('Error searching places: $e');
       return const [];
     }
+  }
+
+  static String? _municipality(Map<String, dynamic> address) {
+    for (final key in const ['city', 'town', 'village', 'municipality']) {
+      final value = address[key]?.toString().trim();
+      if (value != null && value.isNotEmpty && !_looksLikeInvalidCity(value)) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  static bool _looksLikeInvalidCity(String value) {
+    return RegExp(r'^\d+[\s-]').hasMatch(value) ||
+        RegExp(r'\b(street|st\.?|road|rd\.?|avenue|ave\.?|boulevard|blvd\.?)\b',
+                caseSensitive: false)
+            .hasMatch(value);
   }
 }

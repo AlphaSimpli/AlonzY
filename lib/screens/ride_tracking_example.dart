@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../maps/map_controller.dart';
@@ -45,6 +45,7 @@ class _RideTrackingExampleState extends State<RideTrackingExample> {
       label: 'Pickup',
       color: '#10B981',
     );
+    if (!mounted) return;
     await service.addRideLocationMarker(
       markerId: 'dropoff-$rideId',
       latitude: dropoff.latitude,
@@ -52,14 +53,17 @@ class _RideTrackingExampleState extends State<RideTrackingExample> {
       label: 'Dropoff',
       color: '#EF4444',
     );
+    if (!mounted) return;
     await service.addRoutePolyline(
       waypoints: const [pickup, dropoff],
       color: '#4F46E5',
     );
+    if (!mounted) return;
     await service.animateCameraToFitBounds(
       points: const [pickup, dropoff],
       padding: 150,
     );
+    if (!mounted) return;
 
     _driverUpdates = service.subscribeToDriverUpdates(
       rideId: rideId,

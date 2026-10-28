@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -14,6 +15,7 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
@@ -23,6 +25,7 @@ class _SignupPageState extends State<SignupPage> {
   Future<void> _signUp() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
+    final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
@@ -41,6 +44,7 @@ class _SignupPageState extends State<SignupPage> {
         password: password,
         firstName: firstName.isEmpty ? null : firstName,
         lastName: lastName.isEmpty ? null : lastName,
+        phone: phone.isEmpty ? null : phone,
       );
 
       if (!mounted) return;
@@ -57,7 +61,7 @@ class _SignupPageState extends State<SignupPage> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Could not create your account. Please try again.');
+      _showMessage('$e'.replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -118,6 +122,20 @@ class _SignupPageState extends State<SignupPage> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _phoneController,
+          enabled: !_loading,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
+          ],
+          decoration: const InputDecoration(
+            labelText: 'Phone (optional)',
+            prefixIcon: Icon(Icons.phone_outlined),
+          ),
         ),
         const SizedBox(height: 14),
         TextField(
