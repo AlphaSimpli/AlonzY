@@ -8,6 +8,7 @@ import '../models/ride.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'chat_page.dart';
+import 'live_safety_track_screen.dart';
 
 /// Driver-side booking management for all posted rides.
 ///
@@ -155,6 +156,17 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
     }
   }
 
+  Future<void> _openLiveSafetyTrack(Ride ride) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LiveSafetyTrackScreen(
+          rideId: ride.id,
+          initialCenter: ride.start,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openChat(Booking booking) async {
     final userId = _authService.currentUser?.id;
     final passenger = booking.passenger;
@@ -217,6 +229,9 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
                     onReject: (booking) => _rejectBooking(booking.id),
                     onCancel: (booking) => _cancelBooking(booking.id),
                     onMessage: (booking) => _openChat(booking),
+                    onTrack: _rides[index].status == 'in_progress'
+                        ? () => _openLiveSafetyTrack(_rides[index])
+                        : null,
                     onComplete: _rides[index].status == 'available' ||
                             _rides[index].status == 'in_progress'
                         ? () => _markCompleted(_rides[index])
@@ -259,6 +274,7 @@ class _RideBookingsCard extends StatelessWidget {
     required this.onReject,
     required this.onCancel,
     required this.onMessage,
+    this.onTrack,
     this.onComplete,
   });
 
@@ -268,6 +284,7 @@ class _RideBookingsCard extends StatelessWidget {
   final ValueChanged<Booking> onReject;
   final ValueChanged<Booking> onCancel;
   final ValueChanged<Booking> onMessage;
+  final VoidCallback? onTrack;
   final VoidCallback? onComplete;
 
   @override
@@ -328,6 +345,20 @@ class _RideBookingsCard extends StatelessWidget {
               ),
               if (i < bookings.length - 1) const Divider(height: 1),
             ],
+          if (onTrack != null) ...[
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onTrack,
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Live Safety Track'),
+                ),
+              ),
+            ),
+          ],
           if (onComplete != null) ...[
             const Divider(),
             Padding(

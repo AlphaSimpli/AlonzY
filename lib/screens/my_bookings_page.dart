@@ -6,6 +6,7 @@ import '../models/conversation.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'chat_page.dart';
+import 'live_safety_track_screen.dart';
 
 /// The passenger's booking history, split into Upcoming and Past rides.
 ///
@@ -241,6 +242,18 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
+  Future<void> _openLiveSafetyTrack(Booking booking) {
+    final ride = booking.ride;
+    if (ride == null) return Future<void>.value();
+
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            LiveSafetyTrackScreen(rideId: ride.id, initialCenter: ride.start),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _visibleBookings;
@@ -310,6 +323,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                       visible[index].status == 'pending')
                               ? () => _openChat(visible[index])
                               : null,
+                          onTrack: visible[index].status == 'confirmed' &&
+                                  visible[index].ride?.status == 'in_progress'
+                              ? () => _openLiveSafetyTrack(visible[index])
+                              : null,
                         ),
                   ),
                 ),
@@ -362,12 +379,14 @@ class _BookingCard extends StatelessWidget {
     this.onCancel,
     this.onRate,
     this.onMessage,
+    this.onTrack,
   });
 
   final Booking booking;
   final VoidCallback? onCancel;
   final VoidCallback? onRate;
   final VoidCallback? onMessage;
+  final VoidCallback? onTrack;
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +505,17 @@ class _BookingCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+            if (onTrack != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onTrack,
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Live Safety Track'),
                 ),
               ),
             ],

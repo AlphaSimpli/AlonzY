@@ -12,6 +12,7 @@ A modern Flutter application for ride-sharing built with Supabase as the backend
 - **User Profiles**: Manage personal profile information and preferences
 - **Real-Time Mapping**: MapLibre GL integration for location selection and ride tracking
 - **Geolocation**: Automatic location detection and geocoding
+- **Live Safety Track**: Opt-in GPS sharing with active ride participants through Supabase Realtime
 
 ## 🛠️ Tech Stack
 
@@ -120,11 +121,13 @@ lib/
 │   ├── chat_page.dart
 │   ├── edit_profile_page.dart
 │   ├── profile_page.dart
+│   ├── live_safety_track_screen.dart
 │   └── location_picker_screen.dart
 ├── services/              # Business logic
 │   ├── auth_service.dart
 │   ├── database_service.dart
 │   ├── geocoding_service.dart
+│   ├── live_safety_service.dart
 │   └── map_service.dart
 └── widgets/               # Reusable UI components
     ├── auth_layout.dart
@@ -198,6 +201,22 @@ See `supabase/migrations/` for the schema. All three migrations must be applied:
 #   - conversations + chat_messages tables with participant-only RLS and
 #     realtime replication (chat_messages, conversations)
 ```
+
+### Live Safety Track
+
+Apply [`supabase/migrations/20261027000100_live_safety_track.sql`](supabase/migrations/20261027000100_live_safety_track.sql)
+to add the participant-protected `ride_live_locations` table and enable its
+Supabase Realtime publication. The tracking page is
+[`lib/screens/live_safety_track_screen.dart`](lib/screens/live_safety_track_screen.dart);
+the reusable GPS and Realtime service is
+[`lib/services/live_safety_service.dart`](lib/services/live_safety_service.dart).
+
+Location sharing is explicit and can be stopped by the user. RLS permits access
+only to the driver and confirmed passengers while the ride status is
+`in_progress`; trusted-contact sharing is not enabled until the app has an
+explicit contact and consent model. See
+[`LIVE_SAFETY_TRACK.md`](LIVE_SAFETY_TRACK.md) for deployment, permissions,
+background behavior, and usage.
 
 ## 💬 Real-Time Chat
 
