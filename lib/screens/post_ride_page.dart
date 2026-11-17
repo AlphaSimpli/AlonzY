@@ -973,7 +973,7 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
     );
     await controller.animateToBounds(
       [widget.start, widget.end],
-      padding: 120,
+      padding: 24,
     );
   }
 

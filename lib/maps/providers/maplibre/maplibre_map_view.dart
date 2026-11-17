@@ -49,6 +49,8 @@ class _MaplibreMapViewWidget extends StatefulWidget {
 
 class _MaplibreMapViewWidgetState extends State<_MaplibreMapViewWidget> {
   MaplibreAppMapController? _controller;
+  bool _styleLoaded = false;
+  bool _readyNotified = false;
 
   @override
   Widget build(BuildContext context) {
@@ -63,12 +65,14 @@ class _MaplibreMapViewWidgetState extends State<_MaplibreMapViewWidget> {
         zoom: config.initialZoom,
       ),
       onMapCreated: _handleMapCreated,
-      onStyleLoadedCallback: () {},
+      onStyleLoadedCallback: _handleStyleLoaded,
       onCameraIdle: _handleCameraIdle,
       compassEnabled: config.compassEnabled,
       cameraTargetBounds: CameraTargetBounds.unbounded,
-      minMaxZoomPreference:
-          MinMaxZoomPreference(config.minZoom, config.maxZoom),
+      minMaxZoomPreference: MinMaxZoomPreference(
+        config.minZoom,
+        config.maxZoom,
+      ),
       myLocationEnabled: config.showUserLocation,
       myLocationTrackingMode: MyLocationTrackingMode.none,
       trackCameraPosition: config.trackCameraPosition,
@@ -79,8 +83,26 @@ class _MaplibreMapViewWidgetState extends State<_MaplibreMapViewWidget> {
   }
 
   void _handleMapCreated(MapLibreMapController controller) {
+    if (!mounted) return;
     _controller = MaplibreAppMapController(controller);
-    widget.onMapCreated(_controller!);
+    _notifyWhenReady();
+  }
+
+  void _handleStyleLoaded() {
+    _styleLoaded = true;
+    _notifyWhenReady();
+  }
+
+  void _notifyWhenReady() {
+    final controller = _controller;
+    if (!mounted || !_styleLoaded || _readyNotified || controller == null) {
+      return;
+    }
+    // MapLibre's annotation managers are only initialized after style load.
+    // AppMapController promises a map ready for markers and polylines, not
+    // merely a platform view that has been created.
+    _readyNotified = true;
+    widget.onMapCreated(controller);
   }
 
   void _handleCameraIdle() {
@@ -90,6 +112,7 @@ class _MaplibreMapViewWidgetState extends State<_MaplibreMapViewWidget> {
   @override
   void dispose() {
     _controller?.dispose();
+    _controller = null;
     super.dispose();
   }
 }

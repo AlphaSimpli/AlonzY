@@ -16,14 +16,17 @@ import 'ride_details_page.dart';
 /// never opened implicitly: it only appears on the detail page once a real
 /// address has been selected.
 class SearchRidesPage extends StatefulWidget {
-  const SearchRidesPage({super.key});
+  const SearchRidesPage({super.key, this.databaseService});
+
+  final DatabaseService? databaseService;
 
   @override
   State<SearchRidesPage> createState() => _SearchRidesPageState();
 }
 
 class _SearchRidesPageState extends State<SearchRidesPage> {
-  final DatabaseService _dbService = DatabaseService();
+  late final DatabaseService _dbService =
+      widget.databaseService ?? DatabaseService();
 
   final _startController = TextEditingController();
   final _endController = TextEditingController();
@@ -31,6 +34,8 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
 
   MapLocation? _startLocation;
   MapLocation? _endLocation;
+  String? _selectedStartAddress;
+  String? _selectedEndAddress;
 
   DateTime? _selectedDate;
   int _minSeats = 1;
@@ -38,6 +43,12 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   List<Ride> _searchResults = [];
   bool _loading = false;
   bool _hasSearched = false;
+  String? _searchError;
+
+  // Comparing the selected address with the current text also protects against
+  // stale coordinates after swapping the fields and then editing their text.
+  bool get _hasSelectedOrigin =>
+      _startLocation != null && _selectedStartAddress == _startController.text;
 
   @override
   void dispose() {
@@ -52,12 +63,16 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     final toText = _endController.text;
     final fromLocation = _startLocation;
     final toLocation = _endLocation;
+    final fromSelectedAddress = _selectedStartAddress;
+    final toSelectedAddress = _selectedEndAddress;
 
     setState(() {
       _startController.text = toText;
       _endController.text = fromText;
-      _startLocation = toLocation;
-      _endLocation = fromLocation;
+      _startLocation = toSelectedAddress == toText ? toLocation : null;
+      _endLocation = fromSelectedAddress == fromText ? fromLocation : null;
+      _selectedStartAddress = toSelectedAddress;
+      _selectedEndAddress = fromSelectedAddress;
     });
   }
 
@@ -75,10 +90,26 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   }
 
   Future<void> _searchRides() async {
+    if (_loading) return;
     FocusScope.of(context).unfocus();
+
+    final priceText = _maxPriceController.text.trim().replaceAll(',', '.');
+    final maxPrice = priceText.isEmpty ? null : double.tryParse(priceText);
+    if (priceText.isNotEmpty &&
+        (maxPrice == null || !maxPrice.isFinite || maxPrice < 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid, non-negative maximum price.'),
+        ),
+      );
+      return;
+    }
+    final selectedOrigin = _hasSelectedOrigin ? _startLocation : null;
     setState(() {
       _loading = true;
       _hasSearched = true;
+      _searchError = null;
+      _searchResults = [];
     });
 
     try {
@@ -90,10 +121,6 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
               _selectedDate!.day,
             );
 
-      final double? maxPrice = _maxPriceController.text.isNotEmpty
-          ? double.tryParse(_maxPriceController.text)
-          : null;
-
       final results = await _dbService.searchRides(
         afterDate: dateTime,
         startLocation: _startController.text.trim().isEmpty
@@ -104,6 +131,8 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
             : _endController.text.trim(),
         maxPrice: maxPrice,
         minSeats: _minSeats,
+        originLatitude: selectedOrigin?.latitude,
+        originLongitude: selectedOrigin?.longitude,
       );
 
       if (!mounted) return;
@@ -112,14 +141,21 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
         _loading = false;
       });
 
-      debugPrint("✅ Found ${results.length} rides");
+      debugPrint('Found ${results.length} rides');
     } catch (e) {
-      debugPrint("❌ Error searching rides: $e");
+      debugPrint('Error searching rides: $e');
       if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error searching: $e")),
-      );
+      final message = e is StateError
+          ? e.message.toString()
+          : 'Search failed. Check your connection and sign-in, then try again.';
+      setState(() {
+        _loading = false;
+        _searchError = message;
+        _searchResults = [];
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -164,9 +200,14 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                     label: 'From',
                     icon: Icons.trip_origin,
                     placeholder: 'Leaving from…',
-                    onSelected: (location, address, city) =>
-                        setState(() => _startLocation = location),
-                      onCleared: () => setState(() => _startLocation = null),
+                    onSelected: (location, address, city) => setState(() {
+                      _startLocation = location;
+                      _selectedStartAddress = address;
+                    }),
+                    onCleared: () => setState(() {
+                      _startLocation = null;
+                      _selectedStartAddress = null;
+                    }),
                   ),
                   const SizedBox(height: 4),
                   Align(
@@ -186,9 +227,14 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                     label: 'To',
                     icon: Icons.place,
                     placeholder: 'Going to…',
-                    onSelected: (location, address, city) =>
-                        setState(() => _endLocation = location),
-                      onCleared: () => setState(() => _endLocation = null),
+                    onSelected: (location, address, city) => setState(() {
+                      _endLocation = location;
+                      _selectedEndAddress = address;
+                    }),
+                    onCleared: () => setState(() {
+                      _endLocation = null;
+                      _selectedEndAddress = null;
+                    }),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -223,6 +269,15 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                       prefixIcon: Icon(Icons.attach_money),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _hasSelectedOrigin && _selectedDate != null
+                        ? 'Nearby search: departures within 10 km. '
+                              'Destination is still matched by text.'
+                        : 'Text search. Select a departure suggestion and a '
+                              'date to search departures within 10 km.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: _loading ? null : _searchRides,
@@ -252,6 +307,12 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(child: CircularProgressIndicator()),
             )
+          else if (_searchError != null)
+            _EmptyState(
+              icon: Icons.error_outline,
+              title: 'Search unavailable',
+              message: _searchError!,
+            )
           else if (!_hasSearched)
             const _EmptyState(
               icon: Icons.search,
@@ -267,10 +328,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
             )
           else
             for (final ride in _searchResults)
-              _RideCard(
-                ride: ride,
-                onTap: () => _openRideDetails(ride),
-              ),
+              _RideCard(ride: ride, onTap: () => _openRideDetails(ride)),
         ],
       ),
     );
@@ -397,8 +455,14 @@ class _RideCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  _LocationTag(icon: Icons.trip_origin, text: ride.originAddress),
-                  _LocationTag(icon: Icons.place, text: ride.destinationAddress),
+                  _LocationTag(
+                    icon: Icons.trip_origin,
+                    text: ride.originAddress,
+                  ),
+                  _LocationTag(
+                    icon: Icons.place,
+                    text: ride.destinationAddress,
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -406,8 +470,11 @@ class _RideCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.schedule,
-                      size: 16, color: AppColors.textSecondary),
+                  Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
