@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'l10n/generated/app_localizations.dart';
 import 'screens/home_page.dart';
 import 'screens/login_page.dart';
 import 'theme/app_theme.dart';
@@ -29,6 +30,9 @@ class MyApp extends StatelessWidget {
       title: 'Alonzy',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      locale: const Locale('fr'),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: const AuthGate(),
     );
   }

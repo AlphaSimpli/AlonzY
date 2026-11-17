@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../maps/app_maps.dart';
 import '../maps/map_controller.dart';
 import '../maps/map_types.dart';
@@ -57,6 +59,12 @@ class _PostRidePageState extends State<PostRidePage> {
   bool _publishing = false;
 
   static const int _stepCount = 4;
+
+  AppLocalizations get _strings => AppLocalizations.of(context);
+
+  // Both decimal separators represent the same numeric CAD amount in storage.
+  double? get _price =>
+      double.tryParse(_priceController.text.trim().replaceAll(',', '.'));
 
   static DateTime _defaultDate() {
     final now = DateTime.now();
@@ -117,18 +125,16 @@ class _PostRidePageState extends State<PostRidePage> {
             _endLocation == null ||
             _originCity.isEmpty ||
             _destinationCity.isEmpty) {
-          _showMessage(
-            'Select locations with a recognized municipality from the suggestions',
-          );
+          _showMessage(_strings.postInvalidLocations);
           return false;
         }
         return true;
       case 2:
         return true;
       case 3:
-        final price = double.tryParse(_priceController.text.trim());
+        final price = _price;
         if (price == null || price <= 0) {
-          _showMessage('Enter a valid price per seat');
+          _showMessage(_strings.postInvalidPrice);
           return false;
         }
         return true;
@@ -175,7 +181,7 @@ class _PostRidePageState extends State<PostRidePage> {
       initialDate: _departureDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'Pick a departure date',
+      helpText: _strings.searchPickDate,
     );
     if (picked != null) {
       setState(() => _departureDate = picked);
@@ -186,7 +192,7 @@ class _PostRidePageState extends State<PostRidePage> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _departureTime,
-      helpText: 'Pick a departure time',
+      helpText: _strings.postPickTime,
     );
     if (picked != null) {
       setState(() => _departureTime = picked);
@@ -222,7 +228,7 @@ class _PostRidePageState extends State<PostRidePage> {
         endLng: _endLocation!.longitude,
         departureTime: departure,
         availableSeats: _seats,
-        pricePerSeat: double.parse(_priceController.text.trim()),
+        pricePerSeat: _price!,
         vehicleType: _vehicleType,
         vehiclePlate: _plateController.text.trim().isEmpty
             ? null
@@ -250,7 +256,8 @@ class _PostRidePageState extends State<PostRidePage> {
       _resetForm();
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Could not post ride: $e');
+      debugPrint('Ride publication failed: $e');
+      _showMessage(_strings.postFailed);
     } finally {
       if (mounted) setState(() => _publishing = false);
     }
@@ -266,16 +273,15 @@ class _PostRidePageState extends State<PostRidePage> {
           color: AppColors.success,
           size: 56,
         ),
-        title: const Text('Ride published!'),
-        content: const Text(
-          'Your ride is now live. Passengers can find it in search and book '
-          'a seat right away.',
+        title: Text(_strings.postPublished),
+        content: Text(
+          _strings.postPublishedMessage,
           textAlign: TextAlign.center,
         ),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Great'),
+            child: Text(_strings.postGreat),
           ),
         ],
       ),
@@ -321,7 +327,7 @@ class _PostRidePageState extends State<PostRidePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Post a ride')),
+      appBar: AppBar(title: Text(_strings.postTitle)),
       body: SafeArea(
         child: Column(
           children: [
@@ -351,7 +357,7 @@ class _PostRidePageState extends State<PostRidePage> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _publishing ? null : _previousStep,
-                        child: const Text('Back'),
+                        child: Text(_strings.postBack),
                       ),
                     ),
                   if (_step > 1) const SizedBox(width: 12),
@@ -361,8 +367,8 @@ class _PostRidePageState extends State<PostRidePage> {
                       onPressed: _publishing
                           ? null
                           : _step == _stepCount
-                              ? _publish
-                              : _nextStep,
+                          ? _publish
+                          : _nextStep,
                       icon: _publishing
                           ? const SizedBox(
                               width: 18,
@@ -379,10 +385,10 @@ class _PostRidePageState extends State<PostRidePage> {
                             ),
                       label: Text(
                         _publishing
-                            ? 'Publishing…'
+                            ? _strings.postPublishing
                             : _step == _stepCount
-                                ? 'Publish ride'
-                                : 'Continue',
+                            ? _strings.postPublish
+                            : _strings.postContinue,
                       ),
                     ),
                   ),
@@ -397,10 +403,10 @@ class _PostRidePageState extends State<PostRidePage> {
 
   Widget _stepTitle(BuildContext context) {
     final titles = {
-      1: 'Where is your route?',
-      2: 'When are you departing?',
-      3: 'Seats, price & vehicle',
-      4: 'Trip policies',
+      1: _strings.postRouteTitle,
+      2: _strings.postScheduleTitle,
+      3: _strings.postPriceTitle,
+      4: _strings.postPoliciesTitle,
     };
     return Text(
       titles[_step] ?? '',
@@ -431,13 +437,13 @@ class _PostRidePageState extends State<PostRidePage> {
     return [
       _SectionCard(
         icon: Icons.alt_route,
-        title: 'Route',
+        title: _strings.postRoute,
         children: [
           LocationAutocompleteField(
             controller: _startController,
-            label: 'Pickup',
+            label: _strings.postPickup,
             icon: Icons.trip_origin,
-            placeholder: 'Where are you leaving from?',
+            placeholder: _strings.postPickupHint,
             onSelected: (location, address, city) => setState(() {
               _startLocation = location;
               _originCity = city ?? '';
@@ -458,9 +464,9 @@ class _PostRidePageState extends State<PostRidePage> {
           ),
           LocationAutocompleteField(
             controller: _endController,
-            label: 'Drop-off',
+            label: _strings.postDropoff,
             icon: Icons.place,
-            placeholder: 'Where are you going?',
+            placeholder: _strings.postDropoffHint,
             onSelected: (location, address, city) => setState(() {
               _endLocation = location;
               _destinationCity = city ?? '';
@@ -475,18 +481,23 @@ class _PostRidePageState extends State<PostRidePage> {
             _RoutePreviewMap(
               start: _startLocation!,
               end: _endLocation!,
+              startLabel: _strings.postPickup,
+              endLabel: _strings.postDropoff,
             ),
           ] else
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline,
-                      size: 16, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Select both locations to preview the route on the map.',
+                      _strings.postMapHint,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -506,14 +517,14 @@ class _PostRidePageState extends State<PostRidePage> {
     return [
       _SectionCard(
         icon: Icons.schedule,
-        title: 'Departure',
+        title: _strings.postDeparture,
         children: [
           Row(
             children: [
               Expanded(
                 child: _PickerTile(
                   icon: Icons.calendar_today,
-                  label: 'Date',
+                  label: _strings.searchDate,
                   value: _formatDate(_departureDate),
                   onTap: _pickDate,
                 ),
@@ -522,7 +533,7 @@ class _PostRidePageState extends State<PostRidePage> {
               Expanded(
                 child: _PickerTile(
                   icon: Icons.access_time,
-                  label: 'Time',
+                  label: _strings.postTime,
                   value: _departureTime.format(context),
                   onTap: _pickTime,
                 ),
@@ -542,36 +553,46 @@ class _PostRidePageState extends State<PostRidePage> {
     return [
       _SectionCard(
         icon: Icons.event_seat,
-        title: 'Seats & pricing',
+        title: _strings.postSeatsPricing,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _SeatStepper(
-                  value: _seats,
-                  onChanged: (v) => setState(() => _seats = v),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _priceController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d{0,4}(\.\d{0,2})?'),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 400;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: narrow ? constraints.maxWidth : 190,
+                    child: _SeatStepper(
+                      value: _seats,
+                      onChanged: (v) => setState(() => _seats = v),
                     ),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: 'Price per seat',
-                    prefixIcon: Icon(Icons.attach_money),
-                    hintText: '0.00',
                   ),
-                ),
-              ),
-            ],
+                  SizedBox(
+                    width: narrow
+                        ? constraints.maxWidth
+                        : constraints.maxWidth - 206,
+                    child: TextField(
+                      controller: _priceController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d{0,4}([.,]\d{0,2})?$'),
+                        ),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: _strings.postPricePerSeat,
+                        prefixIcon: const Icon(Icons.attach_money),
+                        hintText: _strings.postPriceHint,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           _PriceSuggestions(
@@ -582,7 +603,7 @@ class _PostRidePageState extends State<PostRidePage> {
       const SizedBox(height: 16),
       _SectionCard(
         icon: Icons.directions_car,
-        title: 'Vehicle',
+        title: _strings.detailsVehicle,
         children: [
           Wrap(
             spacing: 8,
@@ -596,68 +617,54 @@ class _PostRidePageState extends State<PostRidePage> {
             }).toList(),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _makeController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Make (optional)',
-                    hintText: 'e.g. Toyota',
-                  ),
-                ),
+          _ResponsiveFieldPair(
+            first: TextField(
+              controller: _makeController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: _strings.postMake,
+                hintText: _strings.postMakeHint,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _modelController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Model (optional)',
-                    hintText: 'e.g. Corolla',
-                  ),
-                ),
+            ),
+            second: TextField(
+              controller: _modelController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: _strings.postModel,
+                hintText: _strings.postModelHint,
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _colorController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Color (optional)',
-                    hintText: 'e.g. White',
-                  ),
-                ),
+          _ResponsiveFieldPair(
+            first: TextField(
+              controller: _colorController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: _strings.postColor,
+                hintText: _strings.postColorHint,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _yearController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: 'Year (optional)',
-                    hintText: 'e.g. 2022',
-                  ),
-                ),
+            ),
+            second: TextField(
+              controller: _yearController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: InputDecoration(
+                labelText: _strings.postYear,
+                hintText: _strings.postYearHint,
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _plateController,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
-              labelText: 'Plate (optional)',
-              hintText: 'e.g. ABC 123',
+            decoration: InputDecoration(
+              labelText: _strings.postPlate,
+              hintText: _strings.postPlateHint,
             ),
           ),
         ],
@@ -673,31 +680,28 @@ class _PostRidePageState extends State<PostRidePage> {
     return [
       _SectionCard(
         icon: Icons.rule,
-        title: 'Ride policies',
+        title: _strings.postRidePolicies,
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Instant booking'),
-            subtitle: const Text(
-              'Passengers book immediately. Turn off to review and approve '
-              'each booking request first.',
-            ),
+            title: Text(_strings.postInstantBooking),
+            subtitle: Text(_strings.postInstantExplanation),
             value: _instantBooking,
             onChanged: (v) => setState(() => _instantBooking = v),
           ),
           const Divider(),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Pets allowed'),
-            subtitle: const Text(
-              'Allow passengers to bring well-behaved pets',
-            ),
+            title: Text(_strings.postPetsAllowed),
+            subtitle: Text(_strings.postPetsExplanation),
             value: _petsAllowed,
             onChanged: (v) => setState(() => _petsAllowed = v),
           ),
           const SizedBox(height: 8),
-          Text('Luggage space',
-              style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            _strings.postLuggageSpace,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -713,12 +717,13 @@ class _PostRidePageState extends State<PostRidePage> {
           const SizedBox(height: 12),
           TextField(
             controller: _notesController,
+            onChanged: (_) => setState(() {}),
             maxLines: 3,
             textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(
-              labelText: 'Notes for passengers (optional)',
+            decoration: InputDecoration(
+              labelText: _strings.postNotes,
               alignLabelWithHint: true,
-              hintText: 'e.g. music, luggage, stops along the way',
+              hintText: _strings.postNotesHint,
             ),
           ),
         ],
@@ -728,11 +733,19 @@ class _PostRidePageState extends State<PostRidePage> {
 
   Widget _buildPolicySummary() {
     final summary = [
-      'Booking: ${_instantBooking ? 'instant' : 'driver approval'}',
-      'Pets: ${_petsAllowed ? 'allowed' : 'not allowed'}',
-      'Luggage: ${_luggagePolicyLabel(_luggagePolicy)}',
+      _strings.postSummaryBooking(
+        _instantBooking
+            ? _strings.postBookingInstant
+            : _strings.postBookingApproval,
+      ),
+      _strings.postSummaryPets(
+        _petsAllowed
+            ? _strings.detailsPetsAllowed
+            : _strings.detailsPetsNotAllowed,
+      ),
+      _strings.postSummaryLuggage(_luggagePolicyLabel(_luggagePolicy)),
       if (_notesController.text.trim().isNotEmpty)
-        'Notes: ${_notesController.text.trim()}',
+        _strings.postSummaryNotes(_notesController.text.trim()),
     ].join('\n');
 
     return Card(
@@ -746,15 +759,17 @@ class _PostRidePageState extends State<PostRidePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.verified, color: AppColors.primary, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Ready to publish',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+                const Icon(Icons.verified, color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _strings.postReady,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -767,25 +782,23 @@ class _PostRidePageState extends State<PostRidePage> {
     );
   }
 
-  static String _luggagePolicyLabel(String policy) {
+  String _luggagePolicyLabel(String policy) {
     switch (policy) {
       case 'none':
-        return 'no luggage';
+        return _strings.postLuggageNone;
       case 'small':
-        return 'small bags';
+        return _strings.postLuggageSmall;
       case 'large':
-        return 'large items';
+        return _strings.postLuggageLarge;
       default:
-        return 'standard';
+        return _strings.postLuggageStandard;
     }
   }
 
   String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(date);
   }
 }
 
@@ -807,6 +820,7 @@ class _StepIndicator extends StatelessWidget {
         children: [
           for (var i = 1; i <= count; i++) ...[
             Expanded(
+              flex: 3,
               child: Column(
                 children: [
                   AnimatedContainer(
@@ -821,8 +835,11 @@ class _StepIndicator extends StatelessWidget {
                     ),
                     child: Center(
                       child: i < current
-                          ? const Icon(Icons.check,
-                              size: 16, color: Colors.white)
+                          ? const Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.white,
+                            )
                           : Text(
                               '$i',
                               style: TextStyle(
@@ -837,10 +854,13 @@ class _StepIndicator extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _label(i),
+                    _label(context, i),
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 10,
-                      fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: i == current
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       color: i <= current
                           ? AppColors.textPrimary
                           : AppColors.textSecondary,
@@ -863,18 +883,43 @@ class _StepIndicator extends StatelessWidget {
     );
   }
 
-  static String _label(int step) {
+  static String _label(BuildContext context, int step) {
+    final strings = AppLocalizations.of(context);
     switch (step) {
       case 1:
-        return 'Route';
+        return strings.postRoute;
       case 2:
-        return 'Schedule';
+        return strings.postSchedule;
       case 3:
-        return 'Seats & price';
+        return strings.postPricing;
       default:
-        return 'Policies';
+        return strings.postPolicies;
     }
   }
+}
+
+class _ResponsiveFieldPair extends StatelessWidget {
+  const _ResponsiveFieldPair({required this.first, required this.second});
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 400;
+      final width = narrow
+          ? constraints.maxWidth
+          : (constraints.maxWidth - 12) / 2;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          SizedBox(width: width, child: first),
+          SizedBox(width: width, child: second),
+        ],
+      );
+    },
+  );
 }
 
 class _SectionCard extends StatelessWidget {
@@ -908,7 +953,12 @@ class _SectionCard extends StatelessWidget {
                   child: Icon(icon, color: AppColors.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -923,10 +973,17 @@ class _SectionCard extends StatelessWidget {
 /// Map preview of the selected route. Only rendered once both the pickup and
 /// drop-off addresses have been picked from the autocomplete suggestions.
 class _RoutePreviewMap extends StatefulWidget {
-  const _RoutePreviewMap({required this.start, required this.end});
+  const _RoutePreviewMap({
+    required this.start,
+    required this.end,
+    required this.startLabel,
+    required this.endLabel,
+  });
 
   final MapLocation start;
   final MapLocation end;
+  final String startLabel;
+  final String endLabel;
 
   @override
   State<_RoutePreviewMap> createState() => _RoutePreviewMapState();
@@ -938,7 +995,10 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
   @override
   void didUpdateWidget(_RoutePreviewMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+    if (oldWidget.start != widget.start ||
+        oldWidget.end != widget.end ||
+        oldWidget.startLabel != widget.startLabel ||
+        oldWidget.endLabel != widget.endLabel) {
       _draw();
     }
   }
@@ -952,7 +1012,7 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
       MapMarkerData(
         id: 'pickup',
         location: widget.start,
-        label: 'Pickup',
+        label: widget.startLabel,
         colorHex: '#10B981',
       ),
     );
@@ -960,7 +1020,7 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
       MapMarkerData(
         id: 'dropoff',
         location: widget.end,
-        label: 'Drop-off',
+        label: widget.endLabel,
         colorHex: '#EF4444',
       ),
     );
@@ -973,6 +1033,7 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
     );
     await controller.animateToBounds(
       [widget.start, widget.end],
+      // This preview is only 220 px high: keep room between both margins.
       padding: 24,
     );
   }
@@ -983,16 +1044,19 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
       borderRadius: BorderRadius.circular(20),
       child: SizedBox(
         height: 220,
-        child: AppMaps.createView(
-          MapViewConfig(
-            initialCenter: widget.start,
-            initialZoom: 12,
-            showUserLocation: false,
-          ),
-        ).build(onMapCreated: (controller) {
-          _controller = controller;
-          _draw();
-        }),
+        child:
+            AppMaps.createView(
+              MapViewConfig(
+                initialCenter: widget.start,
+                initialZoom: 12,
+                showUserLocation: false,
+              ),
+            ).build(
+              onMapCreated: (controller) {
+                _controller = controller;
+                _draw();
+              },
+            ),
       ),
     );
   }
@@ -1007,7 +1071,7 @@ class _SwapButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton.filledTonal(
       onPressed: onTap,
-      tooltip: 'Swap pickup and drop-off',
+      tooltip: AppLocalizations.of(context).searchSwap,
       icon: const Icon(Icons.swap_vert, size: 20),
       style: IconButton.styleFrom(
         minimumSize: const Size(36, 36),
@@ -1048,12 +1112,14 @@ class _PickerTile extends StatelessWidget {
               children: [
                 Icon(icon, size: 16, color: AppColors.primary),
                 const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -1099,7 +1165,12 @@ class _VehicleChip extends StatelessWidget {
         children: [
           Icon(_icons[type], size: 18),
           const SizedBox(width: 6),
-          Text(type[0].toUpperCase() + type.substring(1)),
+          Text(switch (type) {
+            'sedan' => AppLocalizations.of(context).detailsSedan,
+            'suv' => AppLocalizations.of(context).detailsSuv,
+            'van' => AppLocalizations.of(context).detailsVan,
+            _ => type,
+          }),
         ],
       ),
       selected: selected,
@@ -1122,22 +1193,23 @@ class _LuggageChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChoiceChip(
-      label: Text(_label),
+      label: Text(_label(context)),
       selected: selected,
       onSelected: (_) => onSelected(),
     );
   }
 
-  String get _label {
+  String _label(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     switch (policy) {
       case 'none':
-        return 'None';
+        return strings.postLuggageNone;
       case 'small':
-        return 'Small';
+        return strings.postLuggageSmall;
       case 'large':
-        return 'Large';
+        return strings.postLuggageLarge;
       default:
-        return 'Standard';
+        return strings.postLuggageStandard;
     }
   }
 }
@@ -1161,15 +1233,16 @@ class _SeatStepper extends StatelessWidget {
         children: [
           _StepperButton(
             icon: Icons.remove,
+            tooltip: AppLocalizations.of(context).searchFewerSeats,
             onTap: value > 1 ? () => onChanged(value - 1) : null,
           ),
           Flexible(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Seats',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).searchSeats,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
                   ),
@@ -1187,6 +1260,7 @@ class _SeatStepper extends StatelessWidget {
           ),
           _StepperButton(
             icon: Icons.add,
+            tooltip: AppLocalizations.of(context).searchMoreSeats,
             onTap: value < 8 ? () => onChanged(value + 1) : null,
           ),
         ],
@@ -1196,15 +1270,21 @@ class _SeatStepper extends StatelessWidget {
 }
 
 class _StepperButton extends StatelessWidget {
-  const _StepperButton({required this.icon, required this.onTap});
+  const _StepperButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback? onTap;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
+      tooltip: tooltip,
       icon: Icon(icon),
       iconSize: 18,
       visualDensity: VisualDensity.compact,
@@ -1223,7 +1303,13 @@ class _PriceSuggestions extends StatelessWidget {
       spacing: 8,
       children: ['5', '10', '15', '20'].map((price) {
         return ActionChip(
-          label: Text('\$$price'),
+          label: Text(
+            NumberFormat.simpleCurrency(
+              locale: Localizations.localeOf(context).toLanguageTag(),
+              name: 'CAD',
+              decimalDigits: 0,
+            ).format(int.parse(price)),
+          ),
           avatar: const Icon(Icons.bolt, size: 16),
           onPressed: () => onSelected(price),
         );

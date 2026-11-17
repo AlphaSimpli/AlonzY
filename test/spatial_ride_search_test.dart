@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter_app/l10n/generated/app_localizations.dart';
 import 'package:supabase_flutter_app/maps/map_types.dart';
 import 'package:supabase_flutter_app/screens/search_rides_page.dart';
 import 'package:supabase_flutter_app/services/database_service.dart';
@@ -389,7 +390,12 @@ void main() {
   group('Search screen with mocked HTTP', () {
     Future<void> openSearch(WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: SearchRidesPage(databaseService: service)),
+        MaterialApp(
+          locale: const Locale('en'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          home: SearchRidesPage(databaseService: service),
+        ),
       );
     }
 
@@ -416,6 +422,9 @@ void main() {
 
     Future<void> search(WidgetTester tester) async {
       await tester.ensureVisible(find.text('Search rides'));
+      // The optional OSRM controls make the form taller. Finish scrolling and
+      // relayout before computing the tap position; keep all assertions intact.
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Search rides'));
       await tester.pumpAndSettle();
     }

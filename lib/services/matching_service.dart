@@ -1,16 +1,19 @@
 import 'dart:math';
 
 import '../models/matching_models.dart';
+import 'osrm_service.dart';
 
 /// Smart matching engine that evaluates an offer against a passenger request.
 ///
-/// The algorithm is intentionally standalone and uses only pure Dart math.
-/// It does not mutate shared state and has no side effects on the rest of the
-/// application.
+/// The synchronous method keeps the original pure-Dart Haversine baseline.
+/// The separate asynchronous method explicitly requests OSRM road estimates.
 class MatchingService {
   const MatchingService();
 
-  MatchingResult calculateMatchScore(RideOffer offer, PassengerRequest request) {
+  MatchingResult calculateMatchScore(
+    RideOffer offer,
+    PassengerRequest request,
+  ) {
     if (offer.availableSeats < 1) {
       return const MatchingResult(
         score: 0.0,
@@ -22,9 +25,49 @@ class MatchingService {
     }
 
     final detourKm = _calculateTotalDetourKm(offer, request);
+    return _scoreWithDetour(offer, request, detourKm);
+  }
+
+  /// First integration stage: preserve the score's weights and preferences,
+  /// replacing only the geographic proxy with additional road distance.
+  /// Routing errors propagate: never label a Haversine fallback as OSRM.
+  /// The caller owns/reuses [routingService] and decides how to display failures.
+  Future<RoutedMatchingResult> calculateRoadMatchScore(
+    RideOffer offer,
+    PassengerRequest request, {
+    required OsrmService routingService,
+  }) async {
+    if (offer.availableSeats < 1) {
+      return RoutedMatchingResult(
+        match: calculateMatchScore(offer, request),
+        detour: null,
+      );
+    }
+    final detour = await routingService.getDetour(
+      driverStart: OsrmCoordinate(offer.startLatitude, offer.startLongitude),
+      driverEnd: OsrmCoordinate(offer.endLatitude, offer.endLongitude),
+      pickup: OsrmCoordinate(request.pickupLatitude, request.pickupLongitude),
+      dropoff: OsrmCoordinate(
+        request.dropoffLatitude,
+        request.dropoffLongitude,
+      ),
+    );
+    return RoutedMatchingResult(
+      match: _scoreWithDetour(offer, request, detour.extraDistanceKm),
+      detour: detour,
+    );
+  }
+
+  MatchingResult _scoreWithDetour(
+    RideOffer offer,
+    PassengerRequest request,
+    double detourKm,
+  ) {
     final geographicScore = _calculateGeographicScore(detourKm);
-    final timeDifferenceMinutes =
-        offer.departureTime.difference(request.preferredTime).abs().inMinutes;
+    final timeDifferenceMinutes = offer.departureTime
+        .difference(request.preferredTime)
+        .abs()
+        .inMinutes;
     final timeScore = _calculateTimeScore(timeDifferenceMinutes);
     final preferenceScore = _calculatePreferenceScore(offer, request);
 
@@ -128,19 +171,15 @@ class MatchingService {
     return '$roundedValue% • Low Match';
   }
 
-  double _haversineKm(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
     const earthRadiusKm = 6371.0;
     final lat1Radians = lat1 * (pi / 180.0);
     final lat2Radians = lat2 * (pi / 180.0);
     final deltaLat = (lat2 - lat1) * (pi / 180.0);
     final deltaLon = (lon2 - lon1) * (pi / 180.0);
 
-    final a = sin(deltaLat / 2) * sin(deltaLat / 2) +
+    final a =
+        sin(deltaLat / 2) * sin(deltaLat / 2) +
         cos(lat1Radians) *
             cos(lat2Radians) *
             sin(deltaLon / 2) *
@@ -149,4 +188,12 @@ class MatchingService {
     final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadiusKm * c;
   }
+}
+
+/// Separate result so the existing MatchingResult and its callers stay intact.
+/// A null detour is only used for an offer rejected before any routing request.
+class RoutedMatchingResult {
+  const RoutedMatchingResult({required this.match, required this.detour});
+  final MatchingResult match;
+  final OsrmDetourEstimate? detour;
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/auth_error_localization.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/auth_layout.dart';
@@ -43,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showMessage('Enter your email and password');
+      _showMessage(AppLocalizations.of(context).enterEmailAndPassword);
       return;
     }
 
@@ -53,7 +55,10 @@ class _LoginPageState extends State<LoginPage> {
       // Navigation handled by AuthGate via the auth stream.
     } catch (e) {
       if (!mounted) return;
-      _showMessage('$e'.replaceFirst('Exception: ', ''));
+      final strings = AppLocalizations.of(context);
+      _showMessage(
+        localizedAuthError(e, strings, fallback: strings.authLoginFailed),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -62,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _sendCode() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      _showMessage('Enter your phone number');
+      _showMessage(AppLocalizations.of(context).enterPhoneNumber);
       return;
     }
 
@@ -77,7 +82,10 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showMessage('$e'.replaceFirst('Exception: ', ''));
+      final strings = AppLocalizations.of(context);
+      _showMessage(
+        localizedAuthError(e, strings, fallback: strings.authSendCodeFailed),
+      );
     }
   }
 
@@ -85,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
     final phone = _phoneController.text.trim();
     final token = _otpController.text.trim();
     if (token.isEmpty) {
-      _showMessage('Enter the code you received');
+      _showMessage(AppLocalizations.of(context).enterReceivedCode);
       return;
     }
 
@@ -96,7 +104,10 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showMessage('$e'.replaceFirst('Exception: ', ''));
+      final strings = AppLocalizations.of(context);
+      _showMessage(
+        localizedAuthError(e, strings, fallback: strings.authVerifyCodeFailed),
+      );
     }
   }
 
@@ -108,41 +119,41 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return AuthLayout(
-      title: 'Welcome back',
-      subtitle: 'Sign in to find or share your next ride.',
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      title: strings.loginTitle,
+      subtitle: strings.loginSubtitle,
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Text(
-            'New to Alonzy?',
-            style: TextStyle(color: AppColors.textSecondary),
+          Text(
+            strings.newToAlonzy,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
           TextButton(
             onPressed: _loading
                 ? null
                 : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SignupPage(),
-                      ),
-                    ),
-            child: const Text('Create an account'),
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignupPage()),
+                  ),
+            child: Text(strings.createAnAccount),
           ),
         ],
       ),
       children: [
         SegmentedButton<int>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: 0,
-              label: Text('Email'),
-              icon: Icon(Icons.alternate_email, size: 18),
+              label: Text(strings.emailLabel),
+              icon: const Icon(Icons.alternate_email, size: 18),
             ),
             ButtonSegment(
               value: 1,
-              label: Text('Phone'),
-              icon: Icon(Icons.phone_android, size: 18),
+              label: Text(strings.phoneTab),
+              icon: const Icon(Icons.phone_android, size: 18),
             ),
           ],
           selected: {_mode},
@@ -153,15 +164,14 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 20),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
-          child: _mode == 0
-              ? _buildEmailForm()
-              : _buildPhoneForm(),
+          child: _mode == 0 ? _buildEmailForm() : _buildPhoneForm(),
         ),
       ],
     );
   }
 
   Widget _buildEmailForm() {
+    final strings = AppLocalizations.of(context);
     return Column(
       key: const ValueKey('email'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -172,9 +182,9 @@ class _LoginPageState extends State<LoginPage> {
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.alternate_email),
+          decoration: InputDecoration(
+            labelText: strings.emailLabel,
+            prefixIcon: const Icon(Icons.alternate_email),
           ),
         ),
         const SizedBox(height: 14),
@@ -184,9 +194,12 @@ class _LoginPageState extends State<LoginPage> {
           obscureText: _obscurePassword,
           onSubmitted: (_) => _signInWithEmail(),
           decoration: InputDecoration(
-            labelText: 'Password',
+            labelText: strings.passwordLabel,
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
+              tooltip: _obscurePassword
+                  ? strings.showPassword
+                  : strings.hidePassword,
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
               icon: Icon(
@@ -198,15 +211,14 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: _loading ? null : _signInWithEmail,
-          child: _loading
-              ? const _ButtonSpinner()
-              : const Text('Sign in'),
+          child: _loading ? const _ButtonSpinner() : Text(strings.signIn),
         ),
       ],
     );
   }
 
   Widget _buildPhoneForm() {
+    final strings = AppLocalizations.of(context);
     return Column(
       key: const ValueKey('phone'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -219,24 +231,22 @@ class _LoginPageState extends State<LoginPage> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
           ],
-          decoration: const InputDecoration(
-            labelText: 'Phone number',
-            prefixIcon: Icon(Icons.phone_android),
-            hintText: 'e.g. +15145550123',
+          decoration: InputDecoration(
+            labelText: strings.phoneNumberLabel,
+            prefixIcon: const Icon(Icons.phone_android),
+            hintText: strings.phoneNumberHint,
           ),
         ),
         if (!_codeSent) ...[
           const SizedBox(height: 14),
           Text(
-            'We\'ll text you a one-time code to sign in.',
+            strings.phoneCodeExplanation,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _loading ? null : _sendCode,
-            child: _loading
-                ? const _ButtonSpinner()
-                : const Text('Send code'),
+            child: _loading ? const _ButtonSpinner() : Text(strings.sendCode),
           ),
         ] else ...[
           const SizedBox(height: 14),
@@ -246,10 +256,10 @@ class _LoginPageState extends State<LoginPage> {
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _verifyCode(),
-            decoration: const InputDecoration(
-              labelText: 'Verification code',
-              prefixIcon: Icon(Icons.sms_outlined),
-              hintText: '6-digit code',
+            decoration: InputDecoration(
+              labelText: strings.verificationCodeLabel,
+              prefixIcon: const Icon(Icons.sms_outlined),
+              hintText: strings.verificationCodeHint,
             ),
           ),
           const SizedBox(height: 14),
@@ -257,14 +267,14 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: _loading
                 ? null
                 : () => setState(() => _codeSent = false),
-            child: const Text('Change phone number'),
+            child: Text(strings.changePhoneNumber),
           ),
           const SizedBox(height: 14),
           ElevatedButton(
             onPressed: _loading ? null : _verifyCode,
             child: _loading
                 ? const _ButtonSpinner()
-                : const Text('Verify & sign in'),
+                : Text(strings.verifyAndSignIn),
           ),
         ],
       ],
