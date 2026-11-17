@@ -146,7 +146,7 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
     );
     await controller.animateToBounds(
       [_ride.start, _ride.end],
-      padding: 120,
+      padding: 24,
     );
   }
 
