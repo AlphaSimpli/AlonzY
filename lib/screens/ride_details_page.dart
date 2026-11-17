@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../maps/app_maps.dart';
 import '../maps/map_controller.dart';
 import '../maps/map_types.dart';
@@ -58,27 +60,30 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
         instantBooking: _ride.instantBooking,
       );
       if (!mounted) return;
+      final strings = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             _ride.instantBooking
-                ? '✅ Booking confirmed'
-                : '✅ Booking request sent — awaiting driver approval',
+                ? strings.detailsBookingConfirmed
+                : strings.detailsBookingRequested,
           ),
         ),
       );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      debugPrint('Booking failed: $e');
+      final strings = AppLocalizations.of(context);
       setState(() => _booking = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             e.toString().contains('active booking')
-                ? 'You already have an active booking for this ride.'
+                ? strings.detailsAlreadyBooked
                 : e.toString().contains('Not enough seats')
-                ? 'Not enough seats left on this ride'
-                : '❌ Booking failed: $e',
+                ? strings.detailsNotEnoughSeats
+                : strings.detailsBookingFailed,
           ),
         ),
       );
@@ -115,8 +120,9 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Could not open chat: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context).detailsChatFailed)),
       );
+      debugPrint('Could not open chat: $e');
     }
   }
 
@@ -146,17 +152,27 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
     );
     await controller.animateToBounds(
       [_ride.start, _ride.end],
+      // This preview is only 200 px high: keep room between both margins.
       padding: 24,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final driver = _ride.driver;
+    final hasDriverName =
+        (driver?.firstName?.trim().isNotEmpty ?? false) ||
+        (driver?.lastName?.trim().isNotEmpty ?? false);
     final departure = _ride.departureTime;
+    final money = NumberFormat.currency(
+      locale: strings.localeName == 'fr' ? 'fr_CA' : 'en_CA',
+      name: 'CAD',
+      symbol: '\$',
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ride details')),
+      appBar: AppBar(title: Text(strings.detailsTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -178,27 +194,35 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                     borderRadius: BorderRadius.circular(16),
                     child: SizedBox(
                       height: 200,
-                      child: AppMaps.createView(
-                        MapViewConfig(
-                          initialCenter: _ride.start,
-                          initialZoom: 12,
-                          showUserLocation: false,
-                        ),
-                      ).build(onMapCreated: (controller) {
-                        _mapController = controller;
-                        _drawRoute();
-                      }),
+                      child:
+                          AppMaps.createView(
+                            MapViewConfig(
+                              initialCenter: _ride.start,
+                              initialZoom: 12,
+                              showUserLocation: false,
+                            ),
+                          ).build(
+                            onMapCreated: (controller) {
+                              _mapController = controller;
+                              _drawRoute();
+                            },
+                          ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today,
-                          size: 16, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 8),
-                      Text(
-                        _formatDateTime(departure),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      Expanded(
+                        child: Text(
+                          _formatDateTime(context, departure),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ],
                   ),
@@ -223,7 +247,9 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                         radius: 24,
                         backgroundColor: AppColors.primary,
                         child: Text(
-                          driver?.initials ?? 'D',
+                          hasDriverName
+                              ? driver!.initials
+                              : strings.searchDriverInitial,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -236,27 +262,41 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              driver?.displayName ?? 'Driver',
+                              hasDriverName
+                                  ? driver!.displayName
+                                  : strings.searchDriver,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.star,
-                                    color: Colors.amber, size: 16),
+                                const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  '${(driver?.rating ?? 5.0).toStringAsFixed(1)} rating',
-                                  style: Theme.of(context).textTheme.bodySmall,
+                                Flexible(
+                                  child: Text(
+                                    strings.detailsRating(
+                                      NumberFormat(
+                                        '0.0',
+                                        strings.localeName,
+                                      ).format(driver?.rating ?? 5.0),
+                                    ),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
                                 ),
                               ],
                             ),
-                            if (driver != null &&
-                                driver.verifiedRides > 0) ...[
+                            if (driver != null && driver.verifiedRides > 0) ...[
                               const SizedBox(height: 2),
                               Text(
-                                '${driver.verifiedRides} trip'
-                                '${driver.verifiedRides == 1 ? '' : 's'} completed',
+                                strings.detailsCompletedTrips(
+                                  driver.verifiedRides,
+                                ),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
@@ -291,39 +331,43 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Vehicle & trip details',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    strings.detailsVehicleHeading,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 12),
                   _DetailRow(
                     icon: Icons.directions_car,
-                    label: 'Vehicle',
-                    value: _ride.vehicleSummary,
+                    label: strings.detailsVehicle,
+                    value: _vehicleSummary(strings, _ride),
                   ),
                   const SizedBox(height: 8),
                   _DetailRow(
                     icon: Icons.pets,
-                    label: 'Pets',
-                    value: _ride.petsAllowed ? 'Allowed' : 'Not allowed',
+                    label: strings.detailsPets,
+                    value: _ride.petsAllowed
+                        ? strings.detailsPetsAllowed
+                        : strings.detailsPetsNotAllowed,
                   ),
                   const SizedBox(height: 8),
                   _DetailRow(
                     icon: Icons.luggage,
-                    label: 'Luggage',
-                    value: _luggageLabel(_ride.luggagePolicy),
+                    label: strings.detailsLuggage,
+                    value: _luggageLabel(strings, _ride.luggagePolicy),
                   ),
                   const SizedBox(height: 8),
                   _DetailRow(
                     icon: Icons.bolt,
-                    label: 'Booking',
+                    label: strings.detailsBooking,
                     value: _ride.instantBooking
-                        ? 'Instant — confirmed immediately'
-                        : 'Driver approval required',
+                        ? strings.detailsInstantBooking
+                        : strings.detailsApprovalRequired,
                   ),
                   if (_ride.notes?.isNotEmpty ?? false) ...[
                     const SizedBox(height: 8),
                     _DetailRow(
                       icon: Icons.notes,
-                      label: 'Notes',
+                      label: strings.detailsNotes,
                       value: _ride.notes!,
                     ),
                   ],
@@ -345,14 +389,21 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Price',
-                          style: Theme.of(context).textTheme.titleMedium),
                       Text(
-                        '\$${_ride.pricePerSeat.toStringAsFixed(2)} / seat',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.green,
+                        strings.detailsPrice,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Expanded(
+                        child: Text(
+                          strings.detailsPricePerSeat(
+                            money.format(_ride.pricePerSeat),
+                          ),
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green,
+                          ),
                         ),
                       ),
                     ],
@@ -360,10 +411,14 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Text('Seats to book',
-                          style: Theme.of(context).textTheme.bodyMedium),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                          strings.detailsSeatsToBook,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
                       IconButton(
+                        tooltip: strings.searchFewerSeats,
                         onPressed: _seatsToBook > 1 && !_booking
                             ? () => setState(() => _seatsToBook--)
                             : null,
@@ -377,7 +432,9 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                         ),
                       ),
                       IconButton(
-                        onPressed: _seatsToBook < _ride.availableSeats && !_booking
+                        tooltip: strings.searchMoreSeats,
+                        onPressed:
+                            _seatsToBook < _ride.availableSeats && !_booking
                             ? () => setState(() => _seatsToBook++)
                             : null,
                         icon: const Icon(Icons.add_circle_outline),
@@ -388,13 +445,18 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total',
-                          style: Theme.of(context).textTheme.titleMedium),
                       Text(
-                        '\$${(_ride.pricePerSeat * _seatsToBook).toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+                        strings.detailsTotal,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Expanded(
+                        child: Text(
+                          money.format(_ride.pricePerSeat * _seatsToBook),
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ],
@@ -404,7 +466,10 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                     OutlinedButton.icon(
                       onPressed: _openChat,
                       icon: const Icon(Icons.chat_bubble_outline),
-                      label: const Text('Message driver'),
+                      label: Text(
+                        strings.detailsMessageDriver,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   if (!_isOwnRide) const SizedBox(height: 8),
                   ElevatedButton.icon(
@@ -421,16 +486,16 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                         : const Icon(Icons.event_seat),
                     label: Text(
                       _booking
-                          ? 'Booking…'
-                          : 'Book $_seatsToBook seat'
-                              '${_seatsToBook > 1 ? 's' : ''}',
+                          ? strings.detailsBookingLoading
+                          : strings.detailsBookSeats(_seatsToBook),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   if (_ride.availableSeats <= 3 && _ride.availableSeats > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'Only ${_ride.availableSeats} seats left',
+                        strings.detailsSeatsLeft(_ride.availableSeats),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.warning,
@@ -447,27 +512,51 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
     );
   }
 
-  static String _formatDateTime(DateTime dt) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} at $hh:$mm';
+  static String _formatDateTime(BuildContext context, DateTime dt) {
+    final strings = AppLocalizations.of(context);
+    return strings.detailsDateTime(
+      DateFormat.yMMMd(strings.localeName).format(dt),
+      MaterialLocalizations.of(context).formatTimeOfDay(
+        TimeOfDay.fromDateTime(dt),
+        alwaysUse24HourFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+      ),
+    );
   }
 
-  static String _luggageLabel(String policy) {
+  static String _luggageLabel(AppLocalizations strings, String policy) {
     switch (policy) {
       case 'none':
-        return 'No luggage space';
+        return strings.detailsLuggageNone;
       case 'small':
-        return 'Small bags only';
+        return strings.detailsLuggageSmall;
       case 'large':
-        return 'Large items welcome';
+        return strings.detailsLuggageLarge;
       default:
-        return 'Standard luggage';
+        return strings.detailsLuggageStandard;
     }
+  }
+
+  static String _vehicleSummary(AppLocalizations strings, Ride ride) {
+    final type = switch (ride.vehicleType.toLowerCase()) {
+      'sedan' => strings.detailsSedan,
+      'suv' => strings.detailsSuv,
+      'van' => strings.detailsVan,
+      _ => ride.vehicleType,
+    };
+    // Personal vehicle descriptions are not machine-translated.
+    final parts = [
+      if (ride.vehicleColor?.isNotEmpty ?? false) ride.vehicleColor!,
+      if (ride.vehicleMake?.isNotEmpty ?? false) ride.vehicleMake!,
+      if (ride.vehicleModel?.isNotEmpty ?? false) ride.vehicleModel!,
+      type,
+      if (ride.vehicleYear != null) '(${ride.vehicleYear})',
+    ];
+    final summary = parts.join(' ').trim();
+    if (summary.isEmpty) return strings.detailsVehicleUnspecified;
+    if (ride.vehiclePlate?.isNotEmpty ?? false) {
+      return '$summary · ${ride.vehiclePlate}';
+    }
+    return summary;
   }
 }
 
@@ -485,11 +574,7 @@ class _RouteLine extends StatelessWidget {
         Column(
           children: [
             const Icon(Icons.trip_origin, size: 20, color: AppColors.success),
-            Container(
-              width: 2,
-              height: 32,
-              color: AppColors.divider,
-            ),
+            Container(width: 2, height: 32, color: AppColors.divider),
             const Icon(Icons.place, size: 20, color: AppColors.danger),
           ],
         ),
@@ -498,13 +583,21 @@ class _RouteLine extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(start,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(
+                start,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 24),
-              Text(end,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(
+                end,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ),
@@ -531,10 +624,13 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: AppColors.primary),
         const SizedBox(width: 12),
-        Text('$label:  ',
-            style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500)),
+        Text(
+          '$label:  ',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         Expanded(
           child: Text(
             value,

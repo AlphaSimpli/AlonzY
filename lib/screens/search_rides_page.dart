@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../maps/map_types.dart';
 import '../models/ride.dart';
 import '../services/database_service.dart';
+import '../services/osrm_service.dart';
+import '../services/ride_routing_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/location_autocomplete_field.dart';
 import 'ride_details_page.dart';
@@ -11,14 +15,16 @@ import 'ride_details_page.dart';
 ///
 /// The user fills in Origin, Destination, Date and Seats using live location
 /// autocomplete, then taps "Search rides" to query available rides. Results are
-/// listed inline, sorted by departure time. Tapping a ride opens its detail
+/// listed inline, sorted by departure time in normal mode, or additional road
+/// distance in explicitly enabled OSRM mode. Tapping a ride opens its detail
 /// page (route preview, driver profile, policies) for booking. The map is
 /// never opened implicitly: it only appears on the detail page once a real
 /// address has been selected.
 class SearchRidesPage extends StatefulWidget {
-  const SearchRidesPage({super.key, this.databaseService});
+  const SearchRidesPage({super.key, this.databaseService, this.routingService});
 
   final DatabaseService? databaseService;
+  final RideRoutingService? routingService;
 
   @override
   State<SearchRidesPage> createState() => _SearchRidesPageState();
@@ -44,14 +50,24 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   bool _loading = false;
   bool _hasSearched = false;
   String? _searchError;
+  bool _useRoadRouting = false;
+  bool _routingInProgress = false;
+  RoutedRideSearch? _routedResults;
+  RideRoutingService? _ownedRoutingService;
+
+  RideRoutingService get _router =>
+      widget.routingService ?? (_ownedRoutingService ??= RideRoutingService());
 
   // Comparing the selected address with the current text also protects against
   // stale coordinates after swapping the fields and then editing their text.
   bool get _hasSelectedOrigin =>
       _startLocation != null && _selectedStartAddress == _startController.text;
+  bool get _hasSelectedDestination =>
+      _endLocation != null && _selectedEndAddress == _endController.text;
 
   @override
   void dispose() {
+    _ownedRoutingService?.close();
     _startController.dispose();
     _endController.dispose();
     _maxPriceController.dispose();
@@ -82,9 +98,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'Pick a departure date',
+      helpText: AppLocalizations.of(context).searchPickDate,
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _selectedDate = picked);
     }
   }
@@ -98,60 +114,113 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     if (priceText.isNotEmpty &&
         (maxPrice == null || !maxPrice.isFinite || maxPrice < 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid, non-negative maximum price.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).searchInvalidPrice),
         ),
       );
       return;
     }
     final selectedOrigin = _hasSelectedOrigin ? _startLocation : null;
+    final selectedDestination = _hasSelectedDestination ? _endLocation : null;
+    final useRoadRouting = _useRoadRouting;
+    if (useRoadRouting &&
+        (selectedOrigin == null ||
+            selectedDestination == null ||
+            _selectedDate == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).searchRoadRequired),
+        ),
+      );
+      return;
+    }
+    // Snapshot inputs before the asynchronous database/routing work begins.
+    final originText = _startController.text.trim();
+    final destinationText = _endController.text.trim();
+    final minSeats = _minSeats;
+    final date = _selectedDate;
     setState(() {
       _loading = true;
       _hasSearched = true;
       _searchError = null;
       _searchResults = [];
+      _routedResults = null;
+      _routingInProgress = false;
     });
 
     try {
-      final dateTime = _selectedDate == null
+      final dateTime = date == null
           ? null
-          : DateTime(
-              _selectedDate!.year,
-              _selectedDate!.month,
-              _selectedDate!.day,
-            );
+          : DateTime(date.year, date.month, date.day);
 
       final results = await _dbService.searchRides(
         afterDate: dateTime,
-        startLocation: _startController.text.trim().isEmpty
+        startLocation: originText.isEmpty ? null : originText,
+        // PostGIS supplies nearby origins. OSRM replaces the destination TEXT
+        // filter only in road mode, allowing actual pickup/dropoff detours.
+        endLocation: useRoadRouting || destinationText.isEmpty
             ? null
-            : _startController.text.trim(),
-        endLocation: _endController.text.trim().isEmpty
-            ? null
-            : _endController.text.trim(),
+            : destinationText,
         maxPrice: maxPrice,
-        minSeats: _minSeats,
+        minSeats: minSeats,
         originLatitude: selectedOrigin?.latitude,
         originLongitude: selectedOrigin?.longitude,
       );
 
       if (!mounted) return;
+      RoutedRideSearch? routed;
+      if (useRoadRouting) {
+        setState(() => _routingInProgress = true);
+        routed = await _router.rank(
+          candidates: results,
+          pickup: OsrmCoordinate(
+            selectedOrigin!.latitude,
+            selectedOrigin.longitude,
+          ),
+          dropoff: OsrmCoordinate(
+            selectedDestination!.latitude,
+            selectedDestination.longitude,
+          ),
+          isCancelled: () => !mounted,
+        );
+        if (!mounted) return;
+      }
       setState(() {
-        _searchResults = results;
+        _searchResults = routed == null
+            ? results
+            : routed.rides.map((result) => result.ride).toList();
+        _routedResults = routed;
         _loading = false;
+        _routingInProgress = false;
       });
 
-      debugPrint('Found ${results.length} rides');
+      debugPrint(
+        'Found ${_searchResults.length} rides${useRoadRouting ? ' (OSRM)' : ''}',
+      );
     } catch (e) {
-      debugPrint('Error searching rides: $e');
+      // No coordinates or request URLs in routing diagnostics.
+      debugPrint(
+        'Search failed (${e is OsrmException ? e.code : e.runtimeType})',
+      );
       if (!mounted) return;
-      final message = e is StateError
-          ? e.message.toString()
-          : 'Search failed. Check your connection and sign-in, then try again.';
+      final strings = AppLocalizations.of(context);
+      // Keep the diagnostic in the log, not in a user-facing untranslated error.
+      final message =
+          e is StateError &&
+              e.message ==
+                  'More than 100 nearby offers. Narrow the date, price or seat filters.'
+          ? strings.searchTooMany
+          : e is OsrmException
+          ? e.code == 'tooManyCandidates'
+                ? strings.searchRoadTooMany(RideRoutingService.maxCandidates)
+                : strings.searchRoadFailed
+          : strings.searchFailed;
       setState(() {
         _loading = false;
         _searchError = message;
         _searchResults = [];
+        _routedResults = null;
+        _routingInProgress = false;
       });
       ScaffoldMessenger.of(
         context,
@@ -171,8 +240,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text("Find Rides")),
+      appBar: AppBar(title: Text(strings.searchTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -180,120 +250,155 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
           // Search form
           // -----------------------------------------------------------------
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    "Where are you going?",
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Tell us your trip and we'll find a ride for you.",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  LocationAutocompleteField(
-                    controller: _startController,
-                    label: 'From',
-                    icon: Icons.trip_origin,
-                    placeholder: 'Leaving from…',
-                    onSelected: (location, address, city) => setState(() {
-                      _startLocation = location;
-                      _selectedStartAddress = address;
-                    }),
-                    onCleared: () => setState(() {
-                      _startLocation = null;
-                      _selectedStartAddress = null;
-                    }),
-                  ),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton.filledTonal(
-                      onPressed: _swapRoute,
-                      tooltip: 'Swap pickup and drop-off',
-                      icon: const Icon(Icons.swap_vert, size: 20),
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(36, 36),
-                        padding: EdgeInsets.zero,
-                      ),
+            child: AbsorbPointer(
+              absorbing: _loading,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      strings.searchHeading,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                  ),
-                  LocationAutocompleteField(
-                    controller: _endController,
-                    label: 'To',
-                    icon: Icons.place,
-                    placeholder: 'Going to…',
-                    onSelected: (location, address, city) => setState(() {
-                      _endLocation = location;
-                      _selectedEndAddress = address;
-                    }),
-                    onCleared: () => setState(() {
-                      _endLocation = null;
-                      _selectedEndAddress = null;
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PickerTile(
-                          icon: Icons.calendar_today,
-                          label: 'Date',
-                          value: _selectedDate == null
-                              ? 'Any date'
-                              : '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}',
-                          onTap: _selectDate,
+                    const SizedBox(height: 4),
+                    Text(
+                      strings.searchIntroduction,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    LocationAutocompleteField(
+                      controller: _startController,
+                      label: strings.searchFrom,
+                      icon: Icons.trip_origin,
+                      placeholder: strings.searchFromHint,
+                      onSelected: (location, address, city) => setState(() {
+                        _startLocation = location;
+                        _selectedStartAddress = address;
+                      }),
+                      onCleared: () => setState(() {
+                        _startLocation = null;
+                        _selectedStartAddress = null;
+                      }),
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton.filledTonal(
+                        onPressed: _swapRoute,
+                        tooltip: strings.searchSwap,
+                        icon: const Icon(Icons.swap_vert, size: 20),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(36, 36),
+                          padding: EdgeInsets.zero,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _SeatStepper(
-                          value: _minSeats,
-                          onChanged: (v) => setState(() => _minSeats = v),
+                    ),
+                    LocationAutocompleteField(
+                      controller: _endController,
+                      label: strings.searchTo,
+                      icon: Icons.place,
+                      placeholder: strings.searchToHint,
+                      onSelected: (location, address, city) => setState(() {
+                        _endLocation = location;
+                        _selectedEndAddress = address;
+                      }),
+                      onCleared: () => setState(() {
+                        _endLocation = null;
+                        _selectedEndAddress = null;
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _PickerTile(
+                            icon: Icons.calendar_today,
+                            label: strings.searchDate,
+                            value: _selectedDate == null
+                                ? strings.searchAnyDate
+                                : MaterialLocalizations.of(
+                                    context,
+                                  ).formatMediumDate(_selectedDate!),
+                            onTap: _selectDate,
+                          ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SeatStepper(
+                            value: _minSeats,
+                            onChanged: (v) => setState(() => _minSeats = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _maxPriceController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _maxPriceController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                      decoration: InputDecoration(
+                        labelText: strings.searchMaxPrice,
+                        prefixIcon: const Icon(Icons.attach_money),
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Max price per seat (optional)',
-                      prefixIcon: Icon(Icons.attach_money),
+                    const SizedBox(height: 12),
+                    Text(
+                      _useRoadRouting
+                          ? strings.searchRoadNearbyHint
+                          : _hasSelectedOrigin && _selectedDate != null
+                          ? strings.searchNearbyHint
+                          : strings.searchTextHint,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _hasSelectedOrigin && _selectedDate != null
-                        ? 'Nearby search: departures within 10 km. '
-                              'Destination is still matched by text.'
-                        : 'Text search. Select a departure suggestion and a '
-                              'date to search departures within 10 km.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: _loading ? null : _searchRides,
-                    icon: _loading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.search),
-                    label: Text(_loading ? 'Searching…' : 'Search rides'),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(strings.searchRoadToggle),
+                      value: _useRoadRouting,
+                      onChanged: _loading
+                          ? null
+                          : (value) => setState(() {
+                              _useRoadRouting = value;
+                              // Do not leave badges/results from a different mode visible.
+                              _hasSearched = false;
+                              _searchResults = [];
+                              _routedResults = null;
+                              _searchError = null;
+                            }),
+                    ),
+                    if (_useRoadRouting)
+                      Text(
+                        strings.searchRoadHelp(
+                          RideRoutingService.maxCandidates,
+                          RideRoutingService.maxExtraDistanceKm,
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _loading ? null : _searchRides,
+                      icon: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.search),
+                      label: Text(
+                        _routingInProgress
+                            ? strings.searchRoadLoading
+                            : _loading
+                            ? strings.searchLoading
+                            : strings.searchSubmit,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -302,6 +407,16 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
           // -----------------------------------------------------------------
           // Results
           // -----------------------------------------------------------------
+          if (!_loading && _routedResults != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                strings.searchRoadResults(
+                  _routedResults!.rides.length,
+                  _routedResults!.excludedCount,
+                ),
+              ),
+            ),
           if (_loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
@@ -310,25 +425,40 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
           else if (_searchError != null)
             _EmptyState(
               icon: Icons.error_outline,
-              title: 'Search unavailable',
+              title: strings.searchUnavailable,
               message: _searchError!,
             )
           else if (!_hasSearched)
-            const _EmptyState(
+            _EmptyState(
               icon: Icons.search,
-              title: 'Search for a ride',
-              message:
-                  'Enter your trip details above and tap "Search rides" to see available trips.',
+              title: strings.searchInitialTitle,
+              message: strings.searchInitialMessage,
             )
           else if (_searchResults.isEmpty)
-            const _EmptyState(
+            _EmptyState(
               icon: Icons.directions_car,
-              title: 'No rides found',
-              message: 'Try adjusting your search filters',
+              title: strings.searchEmptyTitle,
+              message: _routedResults == null
+                  ? strings.searchEmptyMessage
+                  : strings.searchRoadEmpty,
             )
           else
             for (final ride in _searchResults)
-              _RideCard(ride: ride, onTap: () => _openRideDetails(ride)),
+              _RideCard(
+                ride: ride,
+                detour: _routedResults?.rides
+                    .where((result) => identical(result.ride, ride))
+                    .firstOrNull
+                    ?.detour,
+                onTap: () => _openRideDetails(ride),
+              ),
+          if (_useRoadRouting || _routedResults != null) ...[
+            const SizedBox(height: 16),
+            SelectableText(
+              strings.searchRoadAttribution,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       ),
     );
@@ -372,14 +502,28 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _RideCard extends StatelessWidget {
-  const _RideCard({required this.ride, required this.onTap});
+  const _RideCard({required this.ride, required this.onTap, this.detour});
 
   final Ride ride;
   final VoidCallback onTap;
+  final OsrmDetourEstimate? detour;
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final driver = ride.driver;
+    final hasDriverName =
+        (driver?.firstName?.trim().isNotEmpty ?? false) ||
+        (driver?.lastName?.trim().isNotEmpty ?? false);
+    final price = NumberFormat.currency(
+      locale: strings.localeName == 'fr' ? 'fr_CA' : 'en_CA',
+      name: 'CAD',
+      symbol: '\$',
+    ).format(ride.pricePerSeat);
+    final rating = NumberFormat(
+      '0.0',
+      strings.localeName,
+    ).format(driver?.rating ?? 5.0);
     final timeUntilDeparture = ride.departureTime.difference(DateTime.now());
 
     return Card(
@@ -397,7 +541,9 @@ class _RideCard extends StatelessWidget {
                   CircleAvatar(
                     backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                     child: Text(
-                      driver?.initials ?? 'D',
+                      hasDriverName
+                          ? driver!.initials
+                          : strings.searchDriverInitial,
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,
@@ -410,8 +556,8 @@ class _RideCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "${ride.originCity.isEmpty ? 'Unknown city' : ride.originCity}"
-                          " → ${ride.destinationCity.isEmpty ? 'Unknown city' : ride.destinationCity}",
+                          "${ride.originCity.isEmpty ? strings.searchUnknownCity : ride.originCity}"
+                          " → ${ride.destinationCity.isEmpty ? strings.searchUnknownCity : ride.destinationCity}",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
@@ -421,8 +567,8 @@ class _RideCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "${driver?.displayName ?? 'Driver'} · "
-                          "${(driver?.rating ?? 5.0).toStringAsFixed(1)}⭐",
+                          "${hasDriverName ? driver!.displayName : strings.searchDriver} · "
+                          "$rating⭐",
                           style: Theme.of(context).textTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -434,7 +580,7 @@ class _RideCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        "\$${ride.pricePerSeat.toStringAsFixed(2)}",
+                        price,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -443,7 +589,7 @@ class _RideCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "${ride.availableSeats} seats",
+                        strings.searchAvailableSeats(ride.availableSeats),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -466,6 +612,22 @@ class _RideCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
+              if (detour != null) ...[
+                Text(
+                  strings.searchRoadDetour(
+                    NumberFormat(
+                      '0.0',
+                      strings.localeName,
+                    ).format(detour!.extraDistanceKm),
+                    detour!.extraDurationMinutes.ceil(),
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               Divider(color: AppColors.divider.withValues(alpha: 0.6)),
               const SizedBox(height: 8),
               Row(
@@ -478,7 +640,7 @@ class _RideCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _departsLabel(timeUntilDeparture),
+                      _departsLabel(strings, timeUntilDeparture),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -492,12 +654,15 @@ class _RideCard extends StatelessWidget {
     );
   }
 
-  static String _departsLabel(Duration duration) {
-    if (duration.isNegative) return "Departed";
+  static String _departsLabel(AppLocalizations strings, Duration duration) {
+    if (duration.isNegative) return strings.searchDeparted;
     if (duration.inHours > 0) {
-      return "Departs in ${duration.inHours}h ${duration.inMinutes % 60}m";
+      return strings.searchDepartsHours(
+        duration.inHours,
+        duration.inMinutes % 60,
+      );
     }
-    return "Departs in ${duration.inMinutes}m";
+    return strings.searchDepartsMinutes(duration.inMinutes);
   }
 }
 
@@ -550,12 +715,14 @@ class _PickerTile extends StatelessWidget {
               children: [
                 Icon(icon, size: 16, color: AppColors.primary),
                 const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -584,6 +751,7 @@ class _SeatStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Ink(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -595,27 +763,34 @@ class _SeatStepper extends StatelessWidget {
         children: [
           _StepperButton(
             icon: Icons.remove,
+            tooltip: strings.searchFewerSeats,
             onTap: value > 1 ? () => onChanged(value - 1) : null,
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Seats',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-              ),
-              Text(
-                '$value',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  strings.searchSeats,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
                 ),
-              ),
-            ],
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
           _StepperButton(
             icon: Icons.add,
+            tooltip: strings.searchMoreSeats,
             onTap: value < 8 ? () => onChanged(value + 1) : null,
           ),
         ],
@@ -625,14 +800,20 @@ class _SeatStepper extends StatelessWidget {
 }
 
 class _StepperButton extends StatelessWidget {
-  const _StepperButton({required this.icon, required this.onTap});
+  const _StepperButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback? onTap;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
+      tooltip: tooltip,
       onPressed: onTap,
       icon: Icon(icon),
       iconSize: 18,

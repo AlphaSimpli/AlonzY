@@ -50,7 +50,9 @@ class AuthLayout extends StatelessWidget {
                             Icons.arrow_back,
                             color: Colors.white,
                           ),
-                          tooltip: 'Back',
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).backButtonTooltip,
                         ),
                       ),
                     const SizedBox(height: 20),
