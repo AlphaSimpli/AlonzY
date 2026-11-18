@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter_app/l10n/app_locale_controller.dart';
 import 'package:supabase_flutter_app/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Inspect MyApp's MaterialApp without mounting AuthGate or initializing Supabase.
 Future<MaterialApp> readAppConfiguration(WidgetTester tester) async {
@@ -8,7 +10,11 @@ Future<MaterialApp> readAppConfiguration(WidgetTester tester) async {
   await tester.pumpWidget(
     Builder(
       builder: (context) {
-        configuration = const MyApp().build(context) as MaterialApp;
+        final root =
+            const MyApp().build(context) as ValueListenableBuilder<Locale>;
+        configuration =
+            root.builder(context, root.valueListenable.value, null)
+                as MaterialApp;
         return const SizedBox.shrink();
       },
     ),
@@ -37,6 +43,11 @@ Future<void> pumpLocalizedProbe(
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    AppLocaleController.current.value = const Locale('fr');
+  });
+
   testWidgets('app defaults to French and supports French and English', (
     tester,
   ) async {
@@ -63,5 +74,41 @@ void main() {
 
     expect(find.text('Cancel'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('language setting switches the application locale', (
+    tester,
+  ) async {
+    await AppLocaleController.setLanguage('fr');
+    final configuration = await readAppConfiguration(tester);
+    await AppLocaleController.setLanguage('en');
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: AppLocaleController.current.value,
+        supportedLocales: configuration.supportedLocales,
+        localizationsDelegates: configuration.localizationsDelegates,
+        home: const SizedBox.shrink(),
+      ),
+    );
+    expect(AppLocaleController.current.value, const Locale('en'));
+    expect(
+      SharedPreferences.getInstance().then(
+        (preferences) => preferences.getString('app_language'),
+      ),
+      completion('en'),
+    );
+    expect(tester.takeException(), isNull);
+    await AppLocaleController.setLanguage('fr');
+  });
+
+  testWidgets('saved language is restored and first install defaults to French', (
+    tester,
+  ) async {
+    await AppLocaleController.loadSavedLanguage();
+    expect(AppLocaleController.current.value, const Locale('fr'));
+
+    SharedPreferences.setMockInitialValues({'app_language': 'en'});
+    await AppLocaleController.loadSavedLanguage();
+    expect(AppLocaleController.current.value, const Locale('en'));
   });
 }

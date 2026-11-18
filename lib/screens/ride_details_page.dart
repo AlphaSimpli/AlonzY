@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/app_formatters.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../maps/app_maps.dart';
 import '../maps/map_controller.dart';
@@ -165,12 +166,6 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
         (driver?.firstName?.trim().isNotEmpty ?? false) ||
         (driver?.lastName?.trim().isNotEmpty ?? false);
     final departure = _ride.departureTime;
-    final money = NumberFormat.currency(
-      locale: strings.localeName == 'fr' ? 'fr_CA' : 'en_CA',
-      name: 'CAD',
-      symbol: '\$',
-    );
-
     return Scaffold(
       appBar: AppBar(title: Text(strings.detailsTitle)),
       body: ListView(
@@ -396,7 +391,7 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                       Expanded(
                         child: Text(
                           strings.detailsPricePerSeat(
-                            money.format(_ride.pricePerSeat),
+                            formatCadMoney(context, _ride.pricePerSeat),
                           ),
                           textAlign: TextAlign.end,
                           style: const TextStyle(
@@ -451,7 +446,10 @@ class _RideDetailsPageState extends State<RideDetailsPage> {
                       ),
                       Expanded(
                         child: Text(
-                          money.format(_ride.pricePerSeat * _seatsToBook),
+                          formatCadMoney(
+                            context,
+                            _ride.pricePerSeat * _seatsToBook,
+                          ),
                           textAlign: TextAlign.end,
                           style: const TextStyle(
                             fontSize: 20,

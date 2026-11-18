@@ -27,6 +27,56 @@ class DatabaseService {
 
   static const int _spatialCandidateLimit = 100;
 
+  /// Stores the offers shown by the road matcher as pending feedback.
+  Future<Map<String, String>> recordMatchFeedback(
+    List<MatchFeedbackDraft> entries,
+  ) async {
+    if (entries.isEmpty) return const {};
+    final passengerId = supabase.auth.currentUser?.id;
+    if (passengerId == null) {
+      throw StateError('Sign in before saving matching feedback.');
+    }
+
+    final response = await supabase
+        .from('match_feedback')
+        .insert(
+          entries
+              .map(
+                (entry) => {
+                  'ride_id': entry.rideId,
+                  'passenger_id': passengerId,
+                  'detour_min': entry.detourMinutes,
+                  'time_gap_min': entry.timeGapMinutes,
+                  'pref_score': entry.preferenceScore,
+                  'price': entry.price,
+                  'rule_score': entry.ruleScore,
+                },
+              )
+              .toList(),
+        )
+        .select('id, ride_id');
+
+    return {
+      for (final row in response)
+        row['ride_id'].toString(): row['id'].toString(),
+    };
+  }
+
+  Future<void> updateMatchFeedback({
+    required String feedbackId,
+    required bool accepted,
+  }) async {
+    if (feedbackId.isEmpty) {
+      throw ArgumentError.value(feedbackId, 'feedbackId', 'Must not be empty.');
+    }
+    await supabase
+        .from('match_feedback')
+        .update({'accepted': accepted})
+        .eq('id', feedbackId)
+        .select('id')
+        .single();
+  }
+
   // ============================================================================
   // PROFILES
   // ============================================================================
@@ -565,6 +615,7 @@ class DatabaseService {
             status,
             created_at,
             rides(
+              id,
               driver_id,
               origin_city,
               origin_address,
@@ -808,30 +859,62 @@ class DatabaseService {
     required String passengerId,
     required String driverId,
   }) async {
+    if (rideId.trim().isEmpty ||
+        passengerId.trim().isEmpty ||
+        driverId.trim().isEmpty) {
+      throw ArgumentError(
+        'Conversation participant and ride IDs are required.',
+      );
+    }
+    if (passengerId == driverId) {
+      throw ArgumentError(
+        'A conversation requires two different participants.',
+      );
+    }
+
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
     if (user.id != passengerId && user.id != driverId) {
       throw Exception('Not part of this trip');
     }
 
-    final existing = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('ride_id', rideId)
-        .eq('passenger_id', passengerId)
-        .maybeSingle();
-    if (existing != null) return existing['id'].toString();
+    Future<String?> findExistingId() async {
+      final existing = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('ride_id', rideId)
+          .eq('passenger_id', passengerId)
+          .maybeSingle();
+      final id = existing?['id']?.toString();
+      return id == null || id.isEmpty ? null : id;
+    }
 
-    final created = await supabase
-        .from('conversations')
-        .insert({
-          'ride_id': rideId,
-          'passenger_id': passengerId,
-          'driver_id': driverId,
-        })
-        .select('id')
-        .single();
-    return created['id'].toString();
+    final existingId = await findExistingId();
+    if (existingId != null) return existingId;
+
+    try {
+      final created = await supabase
+          .from('conversations')
+          .insert({
+            'ride_id': rideId,
+            'passenger_id': passengerId,
+            'driver_id': driverId,
+          })
+          .select('id')
+          .single();
+      final id = created['id']?.toString();
+      if (id == null || id.isEmpty) {
+        throw StateError('Supabase created a conversation without an ID.');
+      }
+      return id;
+    } on PostgrestException catch (error) {
+      if (error.code != '23505') rethrow;
+
+      // Another request may have created the unique ride/passenger row first.
+      final racedId = await findExistingId();
+      if (racedId != null) return racedId;
+      rethrow;
+    }
   }
 
   /// All conversations for [userId], newest activity first.
@@ -963,4 +1046,22 @@ class DatabaseService {
         );
     return channel.subscribe();
   }
+}
+
+class MatchFeedbackDraft {
+  const MatchFeedbackDraft({
+    required this.rideId,
+    required this.detourMinutes,
+    required this.timeGapMinutes,
+    required this.preferenceScore,
+    required this.price,
+    required this.ruleScore,
+  });
+
+  final String rideId;
+  final double detourMinutes;
+  final int timeGapMinutes;
+  final double preferenceScore;
+  final double price;
+  final double ruleScore;
 }

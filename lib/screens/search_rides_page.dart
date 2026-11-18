@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/app_formatters.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../maps/map_types.dart';
+import '../models/matching_models.dart';
 import '../models/ride.dart';
 import '../services/database_service.dart';
+import '../services/matching_service.dart';
 import '../services/osrm_service.dart';
+import '../services/road_route_service.dart';
 import '../services/ride_routing_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/location_autocomplete_field.dart';
@@ -21,10 +25,18 @@ import 'ride_details_page.dart';
 /// never opened implicitly: it only appears on the detail page once a real
 /// address has been selected.
 class SearchRidesPage extends StatefulWidget {
-  const SearchRidesPage({super.key, this.databaseService, this.routingService});
+  const SearchRidesPage({
+    super.key,
+    this.databaseService,
+    this.routingService,
+    this.roadRouteService,
+  });
 
   final DatabaseService? databaseService;
+
+  /// Kept for callers that explicitly inject the original route-only service.
   final RideRoutingService? routingService;
+  final RoadRouteService? roadRouteService;
 
   @override
   State<SearchRidesPage> createState() => _SearchRidesPageState();
@@ -44,6 +56,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   String? _selectedEndAddress;
 
   DateTime? _selectedDate;
+  TimeOfDay _preferredTime = const TimeOfDay(hour: 12, minute: 0);
   int _minSeats = 1;
 
   List<Ride> _searchResults = [];
@@ -53,10 +66,17 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   bool _useRoadRouting = false;
   bool _routingInProgress = false;
   RoutedRideSearch? _routedResults;
+  HybridRideSearch? _hybridResults;
+  final Map<String, String> _feedbackIds = {};
+  RoadRouteService? _ownedRoadRouteService;
   RideRoutingService? _ownedRoutingService;
+  final MatchingService _matchingService = const MatchingService();
 
   RideRoutingService get _router =>
       widget.routingService ?? (_ownedRoutingService ??= RideRoutingService());
+  RoadRouteService get _roadRouter =>
+      widget.roadRouteService ??
+      (_ownedRoadRouteService ??= RoadRouteService());
 
   // Comparing the selected address with the current text also protects against
   // stale coordinates after swapping the fields and then editing their text.
@@ -68,6 +88,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   @override
   void dispose() {
     _ownedRoutingService?.close();
+    _ownedRoadRouteService?.close();
     _startController.dispose();
     _endController.dispose();
     _maxPriceController.dispose();
@@ -102,6 +123,17 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     );
     if (picked != null && mounted) {
       setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _selectPreferredTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _preferredTime,
+      helpText: AppLocalizations.of(context).searchChooseTime,
+    );
+    if (picked != null && mounted) {
+      setState(() => _preferredTime = picked);
     }
   }
 
@@ -145,6 +177,8 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       _searchError = null;
       _searchResults = [];
       _routedResults = null;
+      _hybridResults = null;
+      _feedbackIds.clear();
       _routingInProgress = false;
     });
 
@@ -169,27 +203,79 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
 
       if (!mounted) return;
       RoutedRideSearch? routed;
+      HybridRideSearch? hybrid;
       if (useRoadRouting) {
         setState(() => _routingInProgress = true);
-        routed = await _router.rank(
-          candidates: results,
-          pickup: OsrmCoordinate(
-            selectedOrigin!.latitude,
-            selectedOrigin.longitude,
-          ),
-          dropoff: OsrmCoordinate(
-            selectedDestination!.latitude,
-            selectedDestination.longitude,
-          ),
-          isCancelled: () => !mounted,
-        );
+        if (widget.routingService != null) {
+          routed = await _router.rank(
+            candidates: results,
+            pickup: OsrmCoordinate(
+              selectedOrigin!.latitude,
+              selectedOrigin.longitude,
+            ),
+            dropoff: OsrmCoordinate(
+              selectedDestination!.latitude,
+              selectedDestination.longitude,
+            ),
+            isCancelled: () => !mounted,
+          );
+        } else {
+          final preferredDate = date!;
+          hybrid = await _matchingService.rankRides(
+            candidates: results,
+            request: PassengerRequest(
+              id: _dbService.supabase.auth.currentUser?.id ?? '',
+              passengerName: '',
+              pickupLatitude: selectedOrigin!.latitude,
+              pickupLongitude: selectedOrigin.longitude,
+              dropoffLatitude: selectedDestination!.latitude,
+              dropoffLongitude: selectedDestination.longitude,
+              preferredTime: DateTime(
+                preferredDate.year,
+                preferredDate.month,
+                preferredDate.day,
+                _preferredTime.hour,
+                _preferredTime.minute,
+              ),
+              isSmoker: false,
+              hasPet: false,
+              hasLargeLuggage: false,
+            ),
+            pickup: OsrmCoordinate(
+              selectedOrigin.latitude,
+              selectedOrigin.longitude,
+            ),
+            dropoff: OsrmCoordinate(
+              selectedDestination.latitude,
+              selectedDestination.longitude,
+            ),
+            routingService: _roadRouter,
+          );
+          final feedbackIds = await _dbService.recordMatchFeedback([
+            for (final match in hybrid.matches)
+              MatchFeedbackDraft(
+                rideId: match.ride.id,
+                detourMinutes: match.detour.extraDurationMinutes,
+                timeGapMinutes: match.match.timeDifferenceMinutes,
+                preferenceScore: match.preferenceScore,
+                price: match.ride.pricePerSeat,
+                ruleScore: match.match.score,
+              ),
+          ]);
+          _feedbackIds
+            ..clear()
+            ..addAll(feedbackIds);
+        }
         if (!mounted) return;
       }
       setState(() {
-        _searchResults = routed == null
+        _searchResults = hybrid != null
+            ? hybrid.matches.map((result) => result.ride).toList()
+            : routed == null
             ? results
             : routed.rides.map((result) => result.ride).toList();
         _routedResults = routed;
+        _hybridResults = hybrid;
         _loading = false;
         _routingInProgress = false;
       });
@@ -212,7 +298,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
           ? strings.searchTooMany
           : e is OsrmException
           ? e.code == 'tooManyCandidates'
-                ? strings.searchRoadTooMany(RideRoutingService.maxCandidates)
+                ? strings.searchRoadTooMany(_roadCandidateLimit)
                 : strings.searchRoadFailed
           : strings.searchFailed;
       setState(() {
@@ -220,6 +306,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
         _searchError = message;
         _searchResults = [];
         _routedResults = null;
+        _hybridResults = null;
         _routingInProgress = false;
       });
       ScaffoldMessenger.of(
@@ -234,8 +321,58 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       MaterialPageRoute(builder: (_) => RideDetailsPage(ride: ride)),
     );
     if (booked == true && mounted) {
+      final feedbackId = _feedbackIds[ride.id];
+      if (feedbackId != null) {
+        try {
+          await _dbService.updateMatchFeedback(
+            feedbackId: feedbackId,
+            accepted: true,
+          );
+        } catch (error) {
+          debugPrint('Could not update match feedback: ${error.runtimeType}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context).searchFailed),
+              ),
+            );
+          }
+        }
+      }
       _searchRides(); // Refresh seat availability after a booking.
     }
+  }
+
+  Future<void> _rejectMatch(Ride ride) async {
+    final feedbackId = _feedbackIds[ride.id];
+    if (feedbackId == null) return;
+    try {
+      await _dbService.updateMatchFeedback(
+        feedbackId: feedbackId,
+        accepted: false,
+      );
+    } catch (error) {
+      debugPrint('Could not update match feedback: ${error.runtimeType}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).searchFailed)),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _searchResults.removeWhere((result) => result.id == ride.id);
+      _feedbackIds.remove(ride.id);
+      final hybrid = _hybridResults;
+      if (hybrid != null) {
+        _hybridResults = HybridRideSearch(
+          matches: hybrid.matches
+              .where((match) => match.ride.id != ride.id)
+              .toList(),
+          excludedCount: hybrid.excludedCount + 1,
+        );
+      }
+    });
   }
 
   @override
@@ -332,6 +469,17 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                         ),
                       ],
                     ),
+                    if (_useRoadRouting) ...[
+                      const SizedBox(height: 8),
+                      _PickerTile(
+                        icon: Icons.access_time,
+                        label: strings.searchPreferredTime,
+                        value: MaterialLocalizations.of(
+                          context,
+                        ).formatTimeOfDay(_preferredTime),
+                        onTap: _selectPreferredTime,
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: _maxPriceController,
@@ -365,13 +513,15 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                               _hasSearched = false;
                               _searchResults = [];
                               _routedResults = null;
+                              _hybridResults = null;
+                              _feedbackIds.clear();
                               _searchError = null;
                             }),
                     ),
                     if (_useRoadRouting)
                       Text(
                         strings.searchRoadHelp(
-                          RideRoutingService.maxCandidates,
+                          _roadCandidateLimit,
                           RideRoutingService.maxExtraDistanceKm,
                         ),
                         style: Theme.of(context).textTheme.bodySmall,
@@ -407,14 +557,19 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
           // -----------------------------------------------------------------
           // Results
           // -----------------------------------------------------------------
-          if (!_loading && _routedResults != null)
+          if (!_loading && (_routedResults != null || _hybridResults != null))
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                strings.searchRoadResults(
-                  _routedResults!.rides.length,
-                  _routedResults!.excludedCount,
-                ),
+                _routedResults != null
+                    ? strings.searchRoadResults(
+                        _routedResults!.rides.length,
+                        _routedResults!.excludedCount,
+                      )
+                    : strings.searchRoadResults(
+                        _hybridResults!.matches.length,
+                        _hybridResults!.excludedCount,
+                      ),
               ),
             ),
           if (_loading)
@@ -438,7 +593,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
             _EmptyState(
               icon: Icons.directions_car,
               title: strings.searchEmptyTitle,
-              message: _routedResults == null
+              message: _routedResults == null && _hybridResults == null
                   ? strings.searchEmptyMessage
                   : strings.searchRoadEmpty,
             )
@@ -450,9 +605,17 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                     .where((result) => identical(result.ride, ride))
                     .firstOrNull
                     ?.detour,
+                match: _hybridResults?.matches
+                    .where((result) => result.ride.id == ride.id)
+                    .firstOrNull,
                 onTap: () => _openRideDetails(ride),
+                onReject: _feedbackIds.containsKey(ride.id)
+                    ? () => _rejectMatch(ride)
+                    : null,
               ),
-          if (_useRoadRouting || _routedResults != null) ...[
+          if (_useRoadRouting ||
+              _routedResults != null ||
+              _hybridResults != null) ...[
             const SizedBox(height: 16),
             SelectableText(
               strings.searchRoadAttribution,
@@ -463,6 +626,10 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       ),
     );
   }
+
+  int get _roadCandidateLimit => widget.routingService != null
+      ? RideRoutingService.maxCandidates
+      : RoadRouteService.maxCandidates;
 }
 
 // ---------------------------------------------------------------------------
@@ -502,11 +669,19 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _RideCard extends StatelessWidget {
-  const _RideCard({required this.ride, required this.onTap, this.detour});
+  const _RideCard({
+    required this.ride,
+    required this.onTap,
+    this.detour,
+    this.match,
+    this.onReject,
+  });
 
   final Ride ride;
   final VoidCallback onTap;
   final OsrmDetourEstimate? detour;
+  final HybridRideMatch? match;
+  final VoidCallback? onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -515,11 +690,7 @@ class _RideCard extends StatelessWidget {
     final hasDriverName =
         (driver?.firstName?.trim().isNotEmpty ?? false) ||
         (driver?.lastName?.trim().isNotEmpty ?? false);
-    final price = NumberFormat.currency(
-      locale: strings.localeName == 'fr' ? 'fr_CA' : 'en_CA',
-      name: 'CAD',
-      symbol: '\$',
-    ).format(ride.pricePerSeat);
+    final price = formatCadMoney(context, ride.pricePerSeat);
     final rating = NumberFormat(
       '0.0',
       strings.localeName,
@@ -647,6 +818,32 @@ class _RideCard extends StatelessWidget {
                   const Icon(Icons.chevron_right, size: 18),
                 ],
               ),
+              if (match != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.alt_route, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        strings.searchHybridDetour(
+                          match!.detour.extraDurationMinutes.round(),
+                          match!.match.score.round(),
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+                if (onReject != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: onReject,
+                      child: Text(strings.searchRejectMatch),
+                    ),
+                  ),
+              ],
             ],
           ),
         ),

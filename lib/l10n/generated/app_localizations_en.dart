@@ -670,7 +670,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to verify the code. Try again or request a new code.';
 
   @override
-  String get searchRoadToggle => 'Rank by road detour (OSRM)';
+  String get searchRoadToggle => 'Rank by hybrid match score (OSRM)';
 
   @override
   String get searchRoadNearbyHint =>
@@ -699,7 +699,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String searchRoadResults(int count, int excluded) {
-    return 'OSRM ranking by additional detour among preselected offers. Offers retained: $count. Offers not retained: $excluded.';
+    return 'Hybrid ranking of preselected offers by detour, schedule and preferences. Offers retained: $count. Offers not retained: $excluded.';
   }
 
   @override
@@ -714,4 +714,646 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get searchRoadAttribution =>
       'Routes: OSRM. Data: © OpenStreetMap contributors (ODbL).\nhttps://project-osrm.org/\nhttps://www.openstreetmap.org/copyright\nFix the map: https://www.openstreetmap.org/fixthemap';
+
+  @override
+  String searchHybridDetour(int minutes, int score) {
+    return '$minutes min detour · $score% match';
+  }
+
+  @override
+  String get searchPreferredTime => 'Preferred time';
+
+  @override
+  String get searchChooseTime => 'Choose preferred time';
+
+  @override
+  String get searchRejectMatch => 'Decline this suggestion';
+
+  @override
+  String get profileSettingsTitle => 'Profile & Settings';
+
+  @override
+  String get profileLanguage => 'App language';
+
+  @override
+  String get profileEdit => 'Edit profile';
+
+  @override
+  String get profileAccountMode => 'Account mode';
+
+  @override
+  String get profileDriverMode => 'Driver mode';
+
+  @override
+  String get profileDriverEnabled => 'Driver mode enabled';
+
+  @override
+  String get profileDriverDisabled => 'Driver mode disabled';
+
+  @override
+  String get profileDriverModeDescription => 'You can post and manage rides';
+
+  @override
+  String get profileEnableDriverMode => 'Enable to post rides';
+
+  @override
+  String get profileQuickActions => 'Quick actions';
+
+  @override
+  String get profileSearchRides => 'Search rides';
+
+  @override
+  String get profileSearchRidesDescription => 'Find and book available rides';
+
+  @override
+  String get profileMyBookings => 'My bookings';
+
+  @override
+  String get profileMyBookingsDescription => 'View your ride bookings';
+
+  @override
+  String get profileMessages => 'Messages';
+
+  @override
+  String get profileMessagesDescription => 'Chat with drivers and passengers';
+
+  @override
+  String get profilePostRide => 'Post a ride';
+
+  @override
+  String get profilePostRideDescription => 'Create a new ride offer';
+
+  @override
+  String get profileManageBookings => 'Manage bookings';
+
+  @override
+  String get profileManageBookingsDescription =>
+      'Accept or reject passenger bookings';
+
+  @override
+  String get profileMyPostedRides => 'My posted rides';
+
+  @override
+  String get profileNoPostedRides => 'No rides posted yet';
+
+  @override
+  String get profileLogout => 'Log out';
+
+  @override
+  String get profileLoggedOut => 'You have been logged out.';
+
+  @override
+  String get profileVerification => 'Verification';
+
+  @override
+  String get profileNotProvided => 'Not provided';
+
+  @override
+  String get profileVerified => 'Verified';
+
+  @override
+  String get profileNotVerified => 'Not verified';
+
+  @override
+  String get profilePendingReview => 'Pending review';
+
+  @override
+  String get profileVerifyNow => 'Verify now';
+
+  @override
+  String get profileFullyVerified =>
+      '🎉 Fully verified — you’re one of our most trusted members.';
+
+  @override
+  String get profileVerificationEncouragement =>
+      'Verified members are trusted more by the community. Verification is free.';
+
+  @override
+  String profileRating(String rating) {
+    return '$rating rating';
+  }
+
+  @override
+  String get profileDriverBadge => 'Driver';
+
+  @override
+  String profileReviewCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count reviews',
+      one: '$count review',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String profileCompletedTrips(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count trips completed',
+      one: '$count trip completed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get profileRideCancelledStatus => 'Cancelled';
+
+  @override
+  String profileSeatsAvailable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seats available',
+      one: '$count seat available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String profilePricePerSeat(String price) {
+    return '$price / seat';
+  }
+
+  @override
+  String get profileCancelRide => 'Cancel ride';
+
+  @override
+  String get profileCancelRideTitle => 'Cancel this ride?';
+
+  @override
+  String profileCancelRideMessage(String origin, String destination) {
+    return 'The ride from $origin to $destination will no longer be listed.';
+  }
+
+  @override
+  String get profileKeepRide => 'Keep ride';
+
+  @override
+  String get profileRideCancelledNotice => 'Ride cancelled.';
+
+  @override
+  String get profileRideCancelFailed => 'Could not cancel the ride. Try again.';
+
+  @override
+  String get profileLoadFailed => 'Could not load your profile. Try again.';
+
+  @override
+  String get profileUpdateFailed => 'Could not update your profile. Try again.';
+
+  @override
+  String get profileVerifyIdTitle => 'Verify your ID?';
+
+  @override
+  String get profileVerifyIdMessage =>
+      'Your request will be reviewed by our support team. This helps build trust in the community.';
+
+  @override
+  String get profileNotNow => 'Not now';
+
+  @override
+  String get profileRequestVerification => 'Request verification';
+
+  @override
+  String get profileVerificationRequested =>
+      'Verification requested — pending review.';
+
+  @override
+  String get profileVerificationFailed =>
+      'Could not request verification. Try again.';
+
+  @override
+  String get profileDriverRideStatusAvailable => 'Available';
+
+  @override
+  String get profileDriverRideStatusInProgress => 'In progress';
+
+  @override
+  String get profileDriverRideStatusCompleted => 'Completed';
+
+  @override
+  String get profileDriverRideStatusOther => 'Other';
+
+  @override
+  String get myBookings => 'My bookings';
+
+  @override
+  String get myBookingsUpcoming => 'Upcoming';
+
+  @override
+  String get myBookingsPast => 'Past';
+
+  @override
+  String get myBookingsEmptyUpcoming => 'No upcoming bookings';
+
+  @override
+  String get myBookingsEmptyPast => 'No past bookings';
+
+  @override
+  String get myBookingsBrowseRides => 'Browse available rides and book one!';
+
+  @override
+  String get myBookingsHistoryHint => 'Your ride history will appear here.';
+
+  @override
+  String get myBookingsLoadFailed => 'Could not load your bookings. Try again.';
+
+  @override
+  String get myBookingsCancelTitle => 'Cancel booking?';
+
+  @override
+  String get myBookingsCancelConfirm =>
+      'Are you sure you want to cancel this booking?';
+
+  @override
+  String get myBookingsKeep => 'Keep booking';
+
+  @override
+  String get myBookingsCancel => 'Cancel booking';
+
+  @override
+  String get myBookingsCancelled => 'Booking cancelled.';
+
+  @override
+  String get myBookingsCancelFailed =>
+      'Could not cancel the booking. Try again.';
+
+  @override
+  String myBookingsRateDriver(String driver) {
+    return 'Rate $driver';
+  }
+
+  @override
+  String get myBookingsCommentOptional => 'Comment (optional)';
+
+  @override
+  String get myBookingsTripFeedbackHint => 'How was the trip?';
+
+  @override
+  String get myBookingsSubmit => 'Submit';
+
+  @override
+  String get myBookingsReviewThanks => 'Thank you for your review.';
+
+  @override
+  String get myBookingsReviewFailed =>
+      'Could not submit your review. Try again.';
+
+  @override
+  String get myBookingsChatFailed =>
+      'Could not open the conversation. Try again.';
+
+  @override
+  String get myBookingsStart => 'Start';
+
+  @override
+  String get myBookingsEnd => 'End';
+
+  @override
+  String myBookingsDeparture(String date, String time) {
+    return 'Departs: $date at $time';
+  }
+
+  @override
+  String get myBookingsDriver => 'Driver';
+
+  @override
+  String myBookingsDriverRating(String driver, String rating) {
+    return '$driver ($rating ⭐)';
+  }
+
+  @override
+  String get myBookingsYourBooking => 'Your booking';
+
+  @override
+  String myBookingsSeatsAndTotal(int count, String price) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seats',
+      one: '$count seat',
+    );
+    return '$_temp0 · $price';
+  }
+
+  @override
+  String myBookingsPickup(String location) {
+    return 'Pickup: $location';
+  }
+
+  @override
+  String get myBookingsAwaitingApproval =>
+      'Waiting for the driver to approve your booking';
+
+  @override
+  String get myBookingsLiveTrack => 'Live safety tracking';
+
+  @override
+  String get myBookingsMessage => 'Message';
+
+  @override
+  String get myBookingsRateAction => 'Rate driver';
+
+  @override
+  String get myBookingsConfirmedStatus => 'Confirmed';
+
+  @override
+  String get myBookingsPendingStatus => 'Pending';
+
+  @override
+  String get myBookingsCompletedStatus => 'Completed';
+
+  @override
+  String get myBookingsCancelledStatus => 'Cancelled';
+
+  @override
+  String get myBookingsRejectedStatus => 'Rejected';
+
+  @override
+  String get myBookingsOtherStatus => 'Other';
+
+  @override
+  String get languageSaveFailed =>
+      'Could not save your language selection. Please try again.';
+
+  @override
+  String get editProfileTitle => 'Edit profile';
+
+  @override
+  String get editProfilePersonalInfo => 'Personal information';
+
+  @override
+  String get editProfileFirstName => 'First name';
+
+  @override
+  String get editProfileLastName => 'Last name';
+
+  @override
+  String get editProfilePhone => 'Phone';
+
+  @override
+  String get editProfileBio => 'About me';
+
+  @override
+  String get editProfileBioHint => 'Tell passengers a bit about yourself';
+
+  @override
+  String get editProfileContactMethod => 'Preferred contact method';
+
+  @override
+  String get editProfileEmail => 'Email';
+
+  @override
+  String get editProfilePhoneContact => 'Phone';
+
+  @override
+  String get editProfileInAppChat => 'In-app chat';
+
+  @override
+  String get editProfileVehicle => 'My vehicle';
+
+  @override
+  String get editProfileVehicleHint =>
+      'Used to pre-fill your ride postings and shown to passengers.';
+
+  @override
+  String get editProfileMake => 'Make';
+
+  @override
+  String get editProfileMakeHint => 'e.g. Toyota';
+
+  @override
+  String get editProfileModel => 'Model';
+
+  @override
+  String get editProfileModelHint => 'e.g. Corolla';
+
+  @override
+  String get editProfileColor => 'Color';
+
+  @override
+  String get editProfileColorHint => 'e.g. White';
+
+  @override
+  String get editProfileYear => 'Year';
+
+  @override
+  String get editProfileYearHint => 'e.g. 2022';
+
+  @override
+  String get editProfilePlate => 'Plate';
+
+  @override
+  String get editProfilePlateHint => 'e.g. ABC 123';
+
+  @override
+  String get editProfileSave => 'Save changes';
+
+  @override
+  String get editProfileSaving => 'Saving…';
+
+  @override
+  String get editProfileSaved => 'Profile updated.';
+
+  @override
+  String get editProfileSaveFailed =>
+      'Could not save your profile. Please try again.';
+
+  @override
+  String get chatMessagesTitle => 'Messages';
+
+  @override
+  String get chatTitle => 'Chat';
+
+  @override
+  String get chatRefresh => 'Refresh';
+
+  @override
+  String get chatRetry => 'Try again';
+
+  @override
+  String get chatLoadFailed =>
+      'Could not load conversations. Please try again.';
+
+  @override
+  String get chatSendFailed => 'Could not send the message. Please try again.';
+
+  @override
+  String get chatEmptyTitle => 'No conversations yet';
+
+  @override
+  String get chatEmptyMessage =>
+      'Message a driver from a ride or a passenger from your bookings to start chatting.';
+
+  @override
+  String get chatMember => 'Member';
+
+  @override
+  String get chatNoMessages => 'No messages yet';
+
+  @override
+  String get chatNow => 'now';
+
+  @override
+  String chatMinutesAgo(int minutes) {
+    return '${minutes}m';
+  }
+
+  @override
+  String chatHoursAgo(int hours) {
+    return '${hours}h';
+  }
+
+  @override
+  String chatDaysAgo(int days) {
+    return '${days}d';
+  }
+
+  @override
+  String get chatThreadEmptyTitle => 'No messages yet';
+
+  @override
+  String get chatThreadEmptyMessage =>
+      'Say hi and confirm the details of your trip.';
+
+  @override
+  String get chatPassenger => 'Passenger';
+
+  @override
+  String chatBookingRequest(String passenger, int count, String price) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seats',
+      one: 'one seat',
+    );
+    return '$passenger requested $_temp0 for $price';
+  }
+
+  @override
+  String get chatDecline => 'Decline';
+
+  @override
+  String get chatAccept => 'Accept';
+
+  @override
+  String get chatWriteMessage => 'Write a message…';
+
+  @override
+  String get chatSend => 'Send';
+
+  @override
+  String get driverBookingsTitle => 'Manage bookings';
+
+  @override
+  String get driverBookingsNoRidesTitle => 'No rides posted yet';
+
+  @override
+  String get driverBookingsNoRidesMessage =>
+      'Post a ride to start receiving booking requests.';
+
+  @override
+  String get driverBookingsLoadFailed =>
+      'Could not load rides and bookings. Please try again.';
+
+  @override
+  String get driverBookingsActionFailed =>
+      'That action failed. Check your connection and try again.';
+
+  @override
+  String get driverBookingsAccepted => 'Booking accepted.';
+
+  @override
+  String get driverBookingsRejected => 'Booking rejected.';
+
+  @override
+  String get driverBookingsCancelled => 'Booking cancelled.';
+
+  @override
+  String get driverBookingsRideCompleted => 'Ride marked as completed.';
+
+  @override
+  String driverBookingsDeparture(String date, String time) {
+    return 'Departs: $date at $time';
+  }
+
+  @override
+  String driverBookingsSeatsPrice(int count, String price) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seats',
+      one: '$count seat',
+    );
+    return '$_temp0 · $price';
+  }
+
+  @override
+  String get driverBookingsNoBookings => 'No bookings yet';
+
+  @override
+  String get driverBookingsLiveTrack => 'Live safety tracking';
+
+  @override
+  String get driverBookingsCompleteRide => 'Mark ride as completed';
+
+  @override
+  String get driverBookingsPassenger => 'Passenger';
+
+  @override
+  String driverBookingsPhone(String phone) {
+    return 'Phone: $phone';
+  }
+
+  @override
+  String driverBookingsPickup(String location) {
+    return 'Pickup: $location';
+  }
+
+  @override
+  String get driverBookingsMessage => 'Message';
+
+  @override
+  String get driverBookingsReject => 'Reject';
+
+  @override
+  String get driverBookingsAccept => 'Accept';
+
+  @override
+  String get driverBookingsCancel => 'Cancel';
+
+  @override
+  String get safetyShareButton => 'Share my live trip';
+
+  @override
+  String get safetyConsentTitle => 'Sharing consent';
+
+  @override
+  String get safetyConsentMessage =>
+      'Québec Law 25: your precise GPS location will be shared with anyone who has this link until it expires (3 hours) or you stop sharing. The link does not require an account. You may withdraw consent at any time by stopping tracking.';
+
+  @override
+  String get safetyCancel => 'Cancel';
+
+  @override
+  String get safetyStartSharing => 'I agree and share';
+
+  @override
+  String get safetyStopSharing => 'Stop sharing';
+
+  @override
+  String get safetySharingStarted => 'Location sharing is active.';
+
+  @override
+  String get safetySharingStopped => 'Location sharing has stopped.';
+
+  @override
+  String get safetyShareFailed =>
+      'Could not start location sharing. Check permissions and try again.';
+
+  @override
+  String get safetyRideNotActive =>
+      'Tracking is available while the ride is in progress.';
 }

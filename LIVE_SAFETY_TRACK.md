@@ -19,9 +19,44 @@ location. Stopping sharing deletes that participant's last shared row.
 When the ride leaves `in_progress`, a database trigger removes all remaining
 location rows for that ride.
 
-This version does **not** share location with arbitrary trusted contacts.
-That requires a separate trusted-contact relationship and explicit per-trip
-sharing authorization before access can safely be granted.
+The participant-only map above remains separate from the external contact link
+described below. The external link is a bearer capability: anyone who obtains
+it can view the passenger's latest position while the ride is active.
+
+## External safety contact link
+
+Apply `supabase/migrations/20261117000100_postgis_matching_safety.sql` after
+the existing migrations. It creates `match_feedback`, `safety_shares`, and
+`ride_positions`, adds owner-scoped RLS, and exposes
+`get_shared_position(share_token text)`. Anonymous clients can call only that
+RPC; the function returns at most the latest position for the passenger tied
+to that confirmed booking, and only while the link is active, unexpired, and
+the ride is in progress. Ending a ride deactivates shares and deletes stored
+positions.
+
+Apply `supabase/migrations/20261119000100_safety_purge_and_consent.sql` next.
+It stores the immutable `consent_given_at` timestamp for each new share,
+records when sharing is stopped, and purges positions when links expire or
+15 minutes after sharing is stopped. When `pg_cron` is available, the
+migration schedules the purge every 15 minutes. Otherwise, enable `pg_cron` or
+schedule `SELECT public.purge_expired_ride_positions();` from a trusted
+scheduled job. The purge preserves positions while another valid share for the
+same ride remains active.
+
+`SafetyTrackingService` asks for explicit consent (including a Loi 25 notice),
+creates a cryptographically random token valid for three hours, opens the
+native share sheet, and inserts GPS fixes every 12 seconds while the app is in
+the foreground. Stop sharing in **My Bookings** to revoke the token. Location
+collection is paused when the app leaves the foreground.
+
+Configure `SAFETY_TRACKER_URL` in the ignored local `.env` to the deployed
+HTTPS address of `web_tracker/track.html`. Before deployment, inject the
+Supabase URL and public anon/publishable key into `window.ALONZY_CONFIG` before
+the tracker script runs, or populate the `supabase-url` and
+`supabase-anon-key` meta tags in the HTML. These are public client settings;
+never use a `service_role` key. Do not commit project-specific values. The
+page polls the RPC every 12 seconds, reports an invalid or expired link when
+the RPC has no active position, and does not create an authenticated session.
 
 ## App usage
 
@@ -43,11 +78,12 @@ markers. The user must tap **Partager ma position** to start GPS collection.
 Call `LiveSafetyService.stopSharing()` when the trip ends; the page also stops
 the local GPS subscription when it is disposed.
 
-Supabase configuration uses the existing `.env` keys:
+Supabase configuration uses these `.env` keys:
 
 ```text
 SUPABASE_URL=...
 SUPABASE_ANON_KEY=...
+SAFETY_TRACKER_URL=https://your-domain.example/web_tracker/track.html
 ```
 
 No separate Geolocator or MapLibre API key is required. Never ship a Supabase
@@ -75,8 +111,6 @@ Geolocator's location stream does not relaunch the Flutter app after it has
 been force-quit or terminated by the OS. Respect the user's platform-level
 permission choice; do not start sharing before the user opts in.
 
-The service requests Android GPS updates every six seconds by default (the
-interval is configurable between five and ten seconds), and publishes only
-fresh fixes. iOS controls the GPS callback cadence; the service ignores fixes
-older than 30 seconds. The map's initial snapshot ignores rows whose GPS fix
-is over two minutes old.
+The existing in-app participant sharing service continues to use its six
+second location stream. External contact sharing uses foreground position
+requests every twelve seconds and expires automatically after three hours.

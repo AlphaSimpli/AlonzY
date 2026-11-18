@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_locale_controller.dart';
+import '../l10n/app_formatters.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../models/app_user.dart';
 import '../models/ride.dart';
 import '../services/auth_service.dart';
@@ -31,7 +34,9 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadProfile();
+    });
   }
 
   Future<void> _loadProfile() async {
@@ -61,9 +66,10 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('Error loading profile: $e');
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading profile: $e')),
-      );
+      final strings = AppLocalizations.of(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.profileLoadFailed)));
     }
   }
 
@@ -74,40 +80,47 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await _dbService.updateProfile(userId: userId, isDriver: enabled);
       if (!mounted) return;
+      final strings = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            enabled ? '✅ Driver mode enabled' : 'Driver mode disabled',
+            enabled
+                ? strings.profileDriverEnabled
+                : strings.profileDriverDisabled,
           ),
         ),
       );
       _loadProfile();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
-      );
+      final strings = AppLocalizations.of(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.profileUpdateFailed)));
     }
   }
 
   Future<void> _cancelRide(Ride ride) async {
+    final strings = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel this ride?'),
+        title: Text(strings.profileCancelRideTitle),
         content: Text(
-          'The ride from ${ride.originAddress} to ${ride.destinationAddress} will '
-          'no longer be listed.',
+          strings.profileCancelRideMessage(
+            ride.originAddress,
+            ride.destinationAddress,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep it'),
+            child: Text(strings.profileKeepRide),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Cancel ride'),
+            child: Text(strings.profileCancelRide),
           ),
         ],
       ),
@@ -118,14 +131,14 @@ class _ProfilePageState extends State<ProfilePage> {
       await _dbService.updateRideStatus(ride.id, 'cancelled');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Ride cancelled')),
+        SnackBar(content: Text(strings.profileRideCancelledNotice)),
       );
       _loadProfile();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.profileRideCancelFailed)));
     }
   }
 
@@ -144,23 +157,21 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _requestGovtIdVerification() async {
     final userId = _authService.currentUser?.id;
     if (userId == null) return;
+    final strings = AppLocalizations.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Verify your ID?'),
-        content: const Text(
-          'Your request will be reviewed by our support team. '
-          'This helps build trust in the community.',
-        ),
+        title: Text(strings.profileVerifyIdTitle),
+        content: Text(strings.profileVerifyIdMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not now'),
+            child: Text(strings.profileNotNow),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Request verification'),
+            child: Text(strings.profileRequestVerification),
           ),
         ],
       ),
@@ -171,15 +182,13 @@ class _ProfilePageState extends State<ProfilePage> {
       await _dbService.requestGovtIdVerification(userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Verification requested — pending review'),
-        ),
+        SnackBar(content: Text(strings.profileVerificationRequested)),
       );
       _loadProfile();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(content: Text(strings.profileVerificationFailed)),
       );
     }
   }
@@ -187,14 +196,15 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final user = _user;
+    final strings = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile & Settings'),
+        title: Text(strings.profileSettingsTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit profile',
+            tooltip: strings.profileEdit,
             onPressed: _loading ? null : _openEditProfile,
           ),
         ],
@@ -208,6 +218,34 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   _ProfileHeader(user: user, reviewCount: _reviewCount),
                   const SizedBox(height: 24),
+                  Card(
+                    child: ListTile(
+                      title: Text(strings.profileLanguage),
+                      trailing: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'fr', label: Text('FR')),
+                          ButtonSegment(value: 'en', label: Text('EN')),
+                        ],
+                        selected: {strings.localeName == 'fr' ? 'fr' : 'en'},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (selection) async {
+                          try {
+                            await AppLocaleController.setLanguage(
+                              selection.first,
+                            );
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(strings.languageSaveFailed),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // -----------------------------------------------------------------
                   // Verification
@@ -221,15 +259,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   // -----------------------------------------------------------------
                   // Account mode
                   // -----------------------------------------------------------------
-                  Text('Account Mode',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    strings.profileAccountMode,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 12),
                   Card(
                     child: SwitchListTile(
-                      title: const Text('Driver Mode'),
-                      subtitle: Text(user?.isDriver ?? false
-                          ? 'You can post and manage rides'
-                          : 'Enable to post rides'),
+                      title: Text(strings.profileDriverMode),
+                      subtitle: Text(
+                        user?.isDriver ?? false
+                            ? strings.profileDriverModeDescription
+                            : strings.profileEnableDriverMode,
+                      ),
                       value: user?.isDriver ?? false,
                       onChanged: _toggleDriver,
                     ),
@@ -239,17 +281,18 @@ class _ProfilePageState extends State<ProfilePage> {
                   // -----------------------------------------------------------------
                   // Quick actions
                   // -----------------------------------------------------------------
-                  Text('Quick Actions',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    strings.profileQuickActions,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 12),
                   Card(
                     child: Column(
                       children: [
                         ListTile(
                           leading: const Icon(Icons.search),
-                          title: const Text('Search Rides'),
-                          subtitle: const Text(
-                              'Find and book available rides'),
+                          title: Text(strings.profileSearchRides),
+                          subtitle: Text(strings.profileSearchRidesDescription),
                           trailing: const Icon(Icons.arrow_forward),
                           onTap: () => Navigator.push(
                             context,
@@ -261,8 +304,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.bookmark),
-                          title: const Text('My Bookings'),
-                          subtitle: const Text('View your ride bookings'),
+                          title: Text(strings.profileMyBookings),
+                          subtitle: Text(strings.profileMyBookingsDescription),
                           trailing: const Icon(Icons.arrow_forward),
                           onTap: () => Navigator.push(
                             context,
@@ -271,12 +314,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                         ),
-const Divider(height: 1),
+                        const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.chat_bubble_outline),
-                          title: const Text('Messages'),
-                          subtitle: const Text(
-                              'Chat with drivers and passengers'),
+                          title: Text(strings.profileMessages),
+                          subtitle: Text(strings.profileMessagesDescription),
                           trailing: const Icon(Icons.arrow_forward),
                           onTap: () => Navigator.push(
                             context,
@@ -289,9 +331,8 @@ const Divider(height: 1),
                           const Divider(height: 1),
                           ListTile(
                             leading: const Icon(Icons.add_circle),
-                            title: const Text('Post a Ride'),
-                            subtitle: const Text(
-                                'Create a new ride offer'),
+                            title: Text(strings.profilePostRide),
+                            subtitle: Text(strings.profilePostRideDescription),
                             trailing: const Icon(Icons.arrow_forward),
                             onTap: () async {
                               await Navigator.push(
@@ -306,9 +347,10 @@ const Divider(height: 1),
                           const Divider(height: 1),
                           ListTile(
                             leading: const Icon(Icons.people),
-                            title: const Text('Manage Bookings'),
-                            subtitle: const Text(
-                                'Accept/reject passenger bookings'),
+                            title: Text(strings.profileManageBookings),
+                            subtitle: Text(
+                              strings.profileManageBookingsDescription,
+                            ),
                             trailing: const Icon(Icons.arrow_forward),
                             onTap: () {
                               final userId = _authService.currentUser?.id;
@@ -316,8 +358,8 @@ const Divider(height: 1),
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => DriverBookingsPage(
-                                        driverId: userId),
+                                    builder: (_) =>
+                                        DriverBookingsPage(driverId: userId),
                                   ),
                                 );
                               }
@@ -333,15 +375,17 @@ const Divider(height: 1),
                   // My posted rides (driver only)
                   // -----------------------------------------------------------------
                   if (user?.isDriver ?? false) ...[
-                    Text('My Posted Rides',
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      strings.profileMyPostedRides,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 12),
                     if (_myRides.isEmpty)
-                      const Card(
+                      Card(
                         child: Padding(
-                          padding: EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(16),
                           child: Center(
-                            child: Text('No rides posted yet'),
+                            child: Text(strings.profileNoPostedRides),
                           ),
                         ),
                       )
@@ -363,11 +407,11 @@ const Divider(height: 1),
                       await _authService.signOut();
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✅ Logged out')),
+                        SnackBar(content: Text(strings.profileLoggedOut)),
                       );
                     },
                     icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
+                    label: Text(strings.profileLogout),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -392,52 +436,55 @@ class _VerificationSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safe = user ?? const AppUser(id: '');
+    final strings = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Verification',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          strings.profileVerification,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 12),
         Card(
           child: Column(
             children: [
               _VerificationRow(
                 icon: Icons.alternate_email,
-                label: 'Email',
+                label: strings.verificationEmail,
                 status: safe.emailVerified
-                    ? 'Verified'
+                    ? strings.profileVerified
                     : safe.email == null
-                        ? 'Not provided'
-                        : 'Not verified',
+                    ? strings.profileNotProvided
+                    : strings.profileNotVerified,
                 verified: safe.emailVerified,
               ),
               const Divider(height: 1),
               _VerificationRow(
                 icon: Icons.phone,
-                label: 'Phone',
+                label: strings.verificationPhone,
                 status: safe.phoneVerified
-                    ? 'Verified'
+                    ? strings.profileVerified
                     : safe.phone == null
-                        ? 'Not provided'
-                        : 'Not verified',
+                    ? strings.profileNotProvided
+                    : strings.profileNotVerified,
                 verified: safe.phoneVerified,
               ),
               const Divider(height: 1),
               _VerificationRow(
                 icon: Icons.badge_outlined,
-                label: 'Government ID',
+                label: strings.verificationGovernmentId,
                 status: switch (safe.govtIdStatus) {
-                  'verified' => 'Verified',
-                  'pending' => 'Pending review',
-                  _ => 'Not verified',
+                  'verified' => strings.profileVerified,
+                  'pending' => strings.profilePendingReview,
+                  _ => strings.profileNotVerified,
                 },
                 verified: safe.govtIdVerified,
                 pending: safe.govtIdStatus == 'pending',
                 trailing: safe.govtIdStatus == 'none'
                     ? TextButton(
                         onPressed: onRequestIdVerification,
-                        child: const Text('Verify now'),
+                        child: Text(strings.profileVerifyNow),
                       )
                     : null,
               ),
@@ -447,9 +494,8 @@ class _VerificationSection extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           safe.verificationLevel == 3
-              ? '🎉 Fully verified — you\'re one of our most trusted members.'
-              : 'Verified members are trusted more by the community. '
-                  'Verification is free.',
+              ? strings.profileFullyVerified
+              : strings.profileVerificationEncouragement,
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -479,8 +525,8 @@ class _VerificationRow extends StatelessWidget {
     final color = verified
         ? AppColors.success
         : pending
-            ? AppColors.warning
-            : AppColors.textSecondary;
+        ? AppColors.warning
+        : AppColors.textSecondary;
 
     return ListTile(
       leading: Icon(icon, color: AppColors.primary),
@@ -492,8 +538,8 @@ class _VerificationRow extends StatelessWidget {
       trailing: verified
           ? const Icon(Icons.check_circle, color: AppColors.success)
           : pending
-              ? const Icon(Icons.hourglass_top, color: AppColors.warning)
-              : trailing,
+          ? const Icon(Icons.hourglass_top, color: AppColors.warning)
+          : trailing,
     );
   }
 }
@@ -507,6 +553,7 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safe = user ?? const AppUser(id: '');
+    final strings = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -543,16 +590,19 @@ class _ProfileHeader extends StatelessWidget {
                 const Icon(Icons.star, color: Colors.amber, size: 20),
                 const SizedBox(width: 4),
                 Text(
-                  '${safe.rating.toStringAsFixed(1)} rating',
+                  strings.profileRating(safe.rating.toStringAsFixed(1)),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 if (safe.isDriver) ...[
                   const SizedBox(width: 12),
-                  const Icon(Icons.directions_car,
-                      color: AppColors.primary, size: 20),
+                  const Icon(
+                    Icons.directions_car,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 4),
                   Text(
-                    'Driver',
+                    strings.profileDriverBadge,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -565,7 +615,7 @@ class _ProfileHeader extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '$reviewCount review${reviewCount == 1 ? '' : 's'}',
+                  strings.profileReviewCount(reviewCount),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -573,8 +623,7 @@ class _ProfileHeader extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '${safe.verifiedRides} trip'
-                  '${safe.verifiedRides == 1 ? '' : 's'} completed',
+                  strings.profileCompletedTrips(safe.verifiedRides),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -586,13 +635,16 @@ class _ProfileHeader extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
-            if (safe.isDriver && (safe.vehicleMake != null ||
-                safe.vehicleModel != null ||
-                safe.vehiclePlate != null)) ...[
+            if (safe.isDriver &&
+                (safe.vehicleMake != null ||
+                    safe.vehicleModel != null ||
+                    safe.vehiclePlate != null)) ...[
               const SizedBox(height: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
@@ -600,8 +652,11 @@ class _ProfileHeader extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.directions_car,
-                        size: 16, color: AppColors.primary),
+                    const Icon(
+                      Icons.directions_car,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       [
@@ -633,12 +688,20 @@ class _DriverRideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final departure = ride.departureTime;
     final statusColor = switch (ride.status) {
       'available' => Colors.green,
       'in_progress' => Colors.blue,
       'completed' => Colors.grey,
       _ => Colors.orange,
+    };
+    final localizedStatus = switch (ride.status) {
+      'available' => strings.profileDriverRideStatusAvailable,
+      'in_progress' => strings.profileDriverRideStatusInProgress,
+      'completed' => strings.profileDriverRideStatusCompleted,
+      'cancelled' => strings.profileRideCancelledStatus,
+      _ => strings.profileDriverRideStatusOther,
     };
 
     return Card(
@@ -674,20 +737,25 @@ class _DriverRideCard extends StatelessWidget {
                   children: [
                     Chip(
                       label: Text(
-                        ride.status,
+                        localizedStatus,
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 12),
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                       backgroundColor: statusColor,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${departure.month}/${departure.day}/${departure.year}',
+                      MaterialLocalizations.of(
+                        context,
+                      ).formatMediumDate(departure),
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
-                      '${departure.hour.toString().padLeft(2, '0')}:'
-                      '${departure.minute.toString().padLeft(2, '0')}',
+                      MaterialLocalizations.of(
+                        context,
+                      ).formatTimeOfDay(TimeOfDay.fromDateTime(departure)),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -702,13 +770,17 @@ class _DriverRideCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.event_seat, size: 16),
                     const SizedBox(width: 4),
-                    Text('${ride.availableSeats} seats available'),
+                    Text(strings.profileSeatsAvailable(ride.availableSeats)),
                   ],
                 ),
                 Row(
                   children: [
                     const Icon(Icons.attach_money, size: 16),
-                    Text('\$${ride.pricePerSeat.toStringAsFixed(2)}/seat'),
+                    Text(
+                      strings.profilePricePerSeat(
+                        formatCadMoney(context, ride.pricePerSeat),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -724,7 +796,7 @@ class _DriverRideCard extends StatelessWidget {
                     side: const BorderSide(color: Colors.red),
                   ),
                   icon: const Icon(Icons.close),
-                  label: const Text('Cancel ride'),
+                  label: Text(strings.profileCancelRide),
                 ),
               ),
             ],

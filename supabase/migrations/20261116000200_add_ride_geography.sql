@@ -7,9 +7,56 @@
 
 BEGIN;
 
--- Refuser les coordonnees hors limites, sans inventer de valeurs manquantes.
+-- Invalid legacy coordinate pairs cannot be converted to geography. Clear
+-- those numeric pairs while preserving the address fields; never guess fixes.
 DO $$
+DECLARE
+    v_cleared_rows BIGINT;
 BEGIN
+    UPDATE public.rides
+    SET
+        origin_lat = CASE
+            WHEN origin_lat IS NOT NULL AND NOT (origin_lat BETWEEN -90 AND 90)
+                OR origin_lng IS NOT NULL AND NOT (origin_lng BETWEEN -180 AND 180)
+            THEN NULL
+            ELSE origin_lat
+        END,
+        origin_lng = CASE
+            WHEN origin_lat IS NOT NULL AND NOT (origin_lat BETWEEN -90 AND 90)
+                OR origin_lng IS NOT NULL AND NOT (origin_lng BETWEEN -180 AND 180)
+            THEN NULL
+            ELSE origin_lng
+        END,
+        destination_lat = CASE
+            WHEN destination_lat IS NOT NULL
+                     AND NOT (destination_lat BETWEEN -90 AND 90)
+                OR destination_lng IS NOT NULL
+                     AND NOT (destination_lng BETWEEN -180 AND 180)
+            THEN NULL
+            ELSE destination_lat
+        END,
+        destination_lng = CASE
+            WHEN destination_lat IS NOT NULL
+                     AND NOT (destination_lat BETWEEN -90 AND 90)
+                OR destination_lng IS NOT NULL
+                     AND NOT (destination_lng BETWEEN -180 AND 180)
+            THEN NULL
+            ELSE destination_lng
+        END
+    WHERE (origin_lat IS NOT NULL AND NOT (origin_lat BETWEEN -90 AND 90))
+       OR (origin_lng IS NOT NULL AND NOT (origin_lng BETWEEN -180 AND 180))
+       OR (destination_lat IS NOT NULL
+           AND NOT (destination_lat BETWEEN -90 AND 90))
+       OR (destination_lng IS NOT NULL
+           AND NOT (destination_lng BETWEEN -180 AND 180));
+
+    GET DIAGNOSTICS v_cleared_rows = ROW_COUNT;
+    IF v_cleared_rows > 0 THEN
+        RAISE NOTICE
+            'Cleared invalid coordinate pairs on % ride rows; address fields were preserved.',
+            v_cleared_rows;
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
@@ -34,7 +81,8 @@ ALTER TABLE public.rides
 ADD COLUMN IF NOT EXISTS origin_geog extensions.geography(Point, 4326)
 GENERATED ALWAYS AS (
     CASE
-        WHEN origin_lat IS NOT NULL AND origin_lng IS NOT NULL
+        WHEN origin_lat BETWEEN -90 AND 90
+         AND origin_lng BETWEEN -180 AND 180
         THEN extensions.ST_SetSRID(
             extensions.ST_MakePoint(origin_lng, origin_lat), 4326
         )::extensions.geography
@@ -46,7 +94,8 @@ ALTER TABLE public.rides
 ADD COLUMN IF NOT EXISTS destination_geog extensions.geography(Point, 4326)
 GENERATED ALWAYS AS (
     CASE
-        WHEN destination_lat IS NOT NULL AND destination_lng IS NOT NULL
+        WHEN destination_lat BETWEEN -90 AND 90
+         AND destination_lng BETWEEN -180 AND 180
         THEN extensions.ST_SetSRID(
             extensions.ST_MakePoint(destination_lng, destination_lat), 4326
         )::extensions.geography

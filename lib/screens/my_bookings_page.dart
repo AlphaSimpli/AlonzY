@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+
+import '../l10n/generated/app_localizations.dart';
+import '../l10n/app_formatters.dart';
 import '../models/booking.dart';
 import '../models/conversation.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/safety_tracking_service.dart';
 import 'chat_page.dart';
 import 'live_safety_track_screen.dart';
 
@@ -28,11 +32,14 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   bool _loading = true;
   int _tab = 0;
   StreamSubscription<List<Booking>>? _bookingsSub;
+  SafetyTrackingService? _safetyTrackingService;
 
   @override
   void initState() {
     super.initState();
-    _loadBookings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadBookings();
+    });
     final userId = _authService.currentUser?.id;
     if (userId != null) {
       _bookingsSub = _dbService.watchMyBookings(userId).listen((_) {
@@ -44,7 +51,17 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   @override
   void dispose() {
     _bookingsSub?.cancel();
+    final service = _safetyTrackingService;
+    if (service?.isSharing ?? false) unawaited(_stopSafetyOnDispose(service!));
     super.dispose();
+  }
+
+  Future<void> _stopSafetyOnDispose(SafetyTrackingService service) async {
+    try {
+      await service.stopSharing();
+    } catch (error) {
+      debugPrint('Could not revoke safety share during disposal: $error');
+    }
   }
 
   Future<void> _loadBookings() async {
@@ -73,9 +90,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       debugPrint('Error loading bookings: $e');
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading bookings: $e')),
-      );
+      final strings = AppLocalizations.of(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.myBookingsLoadFailed)));
     }
   }
 
@@ -89,20 +107,21 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   Future<void> _cancelBooking(Booking booking) async {
+    final strings = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel Booking?'),
-        content: const Text('Are you sure you want to cancel this booking?'),
+        title: Text(strings.myBookingsCancelTitle),
+        content: Text(strings.myBookingsCancelConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep it'),
+            child: Text(strings.myBookingsKeep),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Cancel Booking'),
+            child: Text(strings.myBookingsCancel),
           ),
         ],
       ),
@@ -112,19 +131,20 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     try {
       await _dbService.cancelBooking(booking.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Booking cancelled')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.myBookingsCancelled)));
       _loadBookings();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.myBookingsCancelFailed)));
     }
   }
 
   Future<void> _rateDriver(Booking booking) async {
+    final strings = AppLocalizations.of(context);
     final ride = booking.ride;
     final driver = ride?.driver;
     if (ride == null || driver == null) return;
@@ -135,7 +155,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Rate ${driver.displayName}'),
+        title: Text(strings.myBookingsRateDriver(driver.displayName)),
         content: StatefulBuilder(
           builder: (dialogContext, setDialogState) => Column(
             mainAxisSize: MainAxisSize.min,
@@ -150,8 +170,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                         color: Colors.amber,
                         size: 32,
                       ),
-                      onPressed: () =>
-                          setDialogState(() => rating = i),
+                      onPressed: () => setDialogState(() => rating = i),
                     ),
                 ],
               ),
@@ -160,10 +179,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 controller: commentController,
                 maxLines: 3,
                 textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
-                  labelText: 'Comment (optional)',
+                decoration: InputDecoration(
+                  labelText: strings.myBookingsCommentOptional,
                   alignLabelWithHint: true,
-                  hintText: 'How was the trip?',
+                  hintText: strings.myBookingsTripFeedbackHint,
                 ),
               ),
             ],
@@ -172,7 +191,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(strings.safetyCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -189,16 +208,16 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 if (!mounted) return;
                 setState(() => _reviewedRideIds.add(ride.id));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✅ Thank you for your review')),
+                  SnackBar(content: Text(strings.myBookingsReviewThanks)),
                 );
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not submit review: $e')),
+                  SnackBar(content: Text(strings.myBookingsReviewFailed)),
                 );
               }
             },
-            child: const Text('Submit'),
+            child: Text(strings.myBookingsSubmit),
           ),
         ],
       ),
@@ -207,14 +226,27 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   Future<void> _openChat(Booking booking) async {
+    final strings = AppLocalizations.of(context);
     final ride = booking.ride;
     final userId = _authService.currentUser?.id;
-    if (ride == null || userId == null) return;
 
     try {
+      if (ride == null) {
+        throw StateError('The booking has no associated ride.');
+      }
+      if (userId == null) {
+        throw StateError('User not authenticated.');
+      }
+      if (booking.rideId.isEmpty ||
+          booking.passengerId != userId ||
+          ride.driverId.isEmpty ||
+          ride.driverId == userId) {
+        throw StateError('The booking has invalid conversation participants.');
+      }
+
       final conversationId = await _dbService.getOrCreateConversation(
-        rideId: ride.id,
-        passengerId: userId,
+        rideId: booking.rideId,
+        passengerId: booking.passengerId,
         driverId: ride.driverId,
       );
       if (!mounted) return;
@@ -224,8 +256,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           builder: (_) => ChatPage(
             conversation: Conversation(
               id: conversationId,
-              rideId: ride.id,
-              passengerId: userId,
+              rideId: booking.rideId,
+              passengerId: booking.passengerId,
               driverId: ride.driverId,
               driver: ride.driver,
               lastMessageAt: DateTime.now(),
@@ -234,11 +266,12 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (error, stackTrace) {
+      debugPrint('Could not open booking chat: $error\n$stackTrace');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Could not open chat: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.myBookingsChatFailed)));
     }
   }
 
@@ -254,33 +287,107 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     );
   }
 
+  Future<void> _shareSafetyTracking(Booking booking) async {
+    final strings = AppLocalizations.of(context);
+    final service = _safetyTrackingService ??= SafetyTrackingService();
+    if (service.isSharing) {
+      try {
+        await service.stopSharing();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(strings.safetySharingStopped)));
+        }
+      } catch (error) {
+        debugPrint('Could not stop safety sharing: $error');
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(strings.safetyShareFailed)));
+        }
+      }
+      return;
+    }
+
+    final consent = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.safetyConsentTitle),
+        content: Text(strings.safetyConsentMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(strings.safetyCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(strings.safetyStartSharing),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (consent != true) return;
+    final ride = booking.ride;
+    if (ride == null || ride.status != 'in_progress') {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(strings.safetyRideNotActive)));
+      return;
+    }
+    try {
+      await service.startSharing(
+        bookingId: booking.id,
+        rideId: booking.rideId,
+        consentGiven: consent == true,
+        onError: (error, stackTrace) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(strings.safetyShareFailed)));
+        },
+      );
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(strings.safetySharingStarted)));
+      }
+    } catch (error) {
+      debugPrint('Could not start safety sharing: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(strings.safetyShareFailed)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final visible = _visibleBookings;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Bookings'),
+        title: Text(strings.myBookings),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadBookings,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadBookings),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: SegmentedButton<int>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: 0,
-                  label: Text('Upcoming'),
+                  label: Text(strings.myBookingsUpcoming),
                   icon: Icon(Icons.schedule, size: 18),
                 ),
                 ButtonSegment(
                   value: 1,
-                  label: Text('Past'),
+                  label: Text(strings.myBookingsPast),
                   icon: Icon(Icons.history, size: 18),
                 ),
               ],
@@ -294,57 +401,61 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : visible.isEmpty
-              ? _EmptyState(
-                  isUpcoming: _tab == 0,
-                  hasAnyBookings: _bookings.isNotEmpty,
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadBookings,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: visible.length,
-                    itemBuilder: (context, index) =>
-                        _BookingCard(
-                          booking: visible[index],
-                          onCancel:
-                              visible[index].status == 'confirmed' ||
-                                  visible[index].status == 'pending'
-                              ? () => _cancelBooking(visible[index])
-                              : null,
-                          onRate: visible[index].status == 'completed' &&
-                                  (visible[index].ride?.driver != null) &&
-                                  !_reviewedRideIds
-                                      .contains(visible[index].ride?.id)
-                              ? () => _rateDriver(visible[index])
-                              : null,
-                          onMessage:
-                              (visible[index].ride?.driver != null) &&
-                                  (visible[index].status == 'confirmed' ||
-                                      visible[index].status == 'pending')
-                              ? () => _openChat(visible[index])
-                              : null,
-                          onTrack: visible[index].status == 'confirmed' &&
-                                  visible[index].ride?.status == 'in_progress'
-                              ? () => _openLiveSafetyTrack(visible[index])
-                              : null,
-                        ),
-                  ),
+          ? _EmptyState(
+              isUpcoming: _tab == 0,
+              hasAnyBookings: _bookings.isNotEmpty,
+            )
+          : RefreshIndicator(
+              onRefresh: _loadBookings,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: visible.length,
+                itemBuilder: (context, index) => _BookingCard(
+                  booking: visible[index],
+                  onCancel:
+                      visible[index].status == 'confirmed' ||
+                          visible[index].status == 'pending'
+                      ? () => _cancelBooking(visible[index])
+                      : null,
+                  onRate:
+                      visible[index].status == 'completed' &&
+                          (visible[index].ride?.driver != null) &&
+                          !_reviewedRideIds.contains(visible[index].ride?.id)
+                      ? () => _rateDriver(visible[index])
+                      : null,
+                  onMessage:
+                      (visible[index].ride?.driver != null) &&
+                          (visible[index].status == 'confirmed' ||
+                              visible[index].status == 'pending')
+                      ? () => _openChat(visible[index])
+                      : null,
+                  onTrack:
+                      visible[index].status == 'confirmed' &&
+                          visible[index].ride?.status == 'in_progress'
+                      ? () => _openLiveSafetyTrack(visible[index])
+                      : null,
+                  onSafetyShare:
+                      visible[index].status == 'confirmed' &&
+                          visible[index].ride?.status == 'in_progress'
+                      ? () => _shareSafetyTracking(visible[index])
+                      : null,
+                  isSharing: _safetyTrackingService?.isSharing ?? false,
                 ),
+              ),
+            ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.isUpcoming,
-    required this.hasAnyBookings,
-  });
+  const _EmptyState({required this.isUpcoming, required this.hasAnyBookings});
 
   final bool isUpcoming;
   final bool hasAnyBookings;
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -356,14 +467,16 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            isUpcoming ? 'No upcoming bookings' : 'No past bookings',
+            isUpcoming
+                ? strings.myBookingsEmptyUpcoming
+                : strings.myBookingsEmptyPast,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
             isUpcoming && !hasAnyBookings
-                ? 'Browse available rides and book one!'
-                : 'Your ride history will appear here.',
+                ? strings.myBookingsBrowseRides
+                : strings.myBookingsHistoryHint,
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -380,6 +493,8 @@ class _BookingCard extends StatelessWidget {
     this.onRate,
     this.onMessage,
     this.onTrack,
+    this.onSafetyShare,
+    this.isSharing = false,
   });
 
   final Booking booking;
@@ -387,9 +502,12 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onRate;
   final VoidCallback? onMessage;
   final VoidCallback? onTrack;
+  final VoidCallback? onSafetyShare;
+  final bool isSharing;
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final ride = booking.ride;
     final driver = ride?.driver;
 
@@ -408,8 +526,8 @@ class _BookingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${ride?.originAddress ?? 'Start'} → '
-                        '${ride?.destinationAddress ?? 'End'}',
+                        '${ride?.originAddress ?? strings.myBookingsStart} → '
+                        '${ride?.destinationAddress ?? strings.myBookingsEnd}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -420,14 +538,14 @@ class _BookingCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       if (ride != null)
                         Text(
-                          _formatDeparture(ride.departureTime),
+                          _formatDeparture(context, ride.departureTime),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                     ],
                   ),
                 ),
                 Chip(
-                  label: Text(booking.status),
+                  label: Text(_localizedBookingStatus(strings, booking.status)),
                   backgroundColor: _statusColor(booking.status),
                 ),
               ],
@@ -440,12 +558,14 @@ class _BookingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Driver',
+                      strings.myBookingsDriver,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     Text(
-                      '${driver?.displayName ?? 'Driver'} '
-                      '(${(driver?.rating ?? 5.0).toStringAsFixed(1)}⭐)',
+                      strings.myBookingsDriverRating(
+                        driver?.displayName ?? strings.myBookingsDriver,
+                        (driver?.rating ?? 5.0).toStringAsFixed(1),
+                      ),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -454,12 +574,14 @@ class _BookingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Your Booking',
+                      strings.myBookingsYourBooking,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     Text(
-                      '${booking.seatsBooked} seat(s) - '
-                      '\$${booking.totalPrice.toStringAsFixed(2)}',
+                      strings.myBookingsSeatsAndTotal(
+                        booking.seatsBooked,
+                        formatCadMoney(context, booking.totalPrice),
+                      ),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
@@ -477,7 +599,7 @@ class _BookingCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Pickup: ${booking.pickupLocation}',
+                      strings.myBookingsPickup(booking.pickupLocation!),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -487,21 +609,29 @@ class _BookingCard extends StatelessWidget {
             if (booking.status == 'pending') ...[
               const SizedBox(height: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.hourglass_top, size: 16, color: Colors.amber),
-                    SizedBox(width: 8),
+                    const Icon(
+                      Icons.hourglass_top,
+                      size: 16,
+                      color: Colors.amber,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Waiting for the driver to approve your booking',
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
+                        strings.myBookingsAwaitingApproval,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -515,7 +645,26 @@ class _BookingCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onTrack,
                   icon: const Icon(Icons.my_location),
-                  label: const Text('Live Safety Track'),
+                  label: Text(strings.myBookingsLiveTrack),
+                ),
+              ),
+            ],
+            if (onSafetyShare != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onSafetyShare,
+                  icon: Icon(
+                    isSharing
+                        ? Icons.stop_circle_outlined
+                        : Icons.share_location,
+                  ),
+                  label: Text(
+                    isSharing
+                        ? AppLocalizations.of(context).safetyStopSharing
+                        : AppLocalizations.of(context).safetyShareButton,
+                  ),
                 ),
               ),
             ],
@@ -528,7 +677,7 @@ class _BookingCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onMessage,
                         icon: const Icon(Icons.chat_bubble_outline),
-                        label: const Text('Message'),
+                        label: Text(strings.myBookingsMessage),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -538,7 +687,7 @@ class _BookingCard extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onRate,
                       icon: const Icon(Icons.star_outline),
-                      label: const Text('Rate driver'),
+                      label: Text(strings.myBookingsRateAction),
                     ),
                   ),
                 ],
@@ -552,7 +701,7 @@ class _BookingCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onMessage,
                         icon: const Icon(Icons.chat_bubble_outline),
-                        label: const Text('Message'),
+                        label: Text(strings.myBookingsMessage),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -562,7 +711,7 @@ class _BookingCard extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: onCancel,
                       icon: const Icon(Icons.close),
-                      label: const Text('Cancel Booking'),
+                      label: Text(strings.myBookingsCancel),
                     ),
                   ),
                 ],
@@ -574,14 +723,27 @@ class _BookingCard extends StatelessWidget {
     );
   }
 
-  static String _formatDeparture(DateTime dt) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return 'Departs: ${months[dt.month - 1]} ${dt.day} at $hh:$mm';
+  static String _formatDeparture(BuildContext context, DateTime departure) {
+    final strings = AppLocalizations.of(context);
+    final material = MaterialLocalizations.of(context);
+    return strings.myBookingsDeparture(
+      material.formatMediumDate(departure),
+      material.formatTimeOfDay(TimeOfDay.fromDateTime(departure)),
+    );
+  }
+
+  static String _localizedBookingStatus(
+    AppLocalizations strings,
+    String status,
+  ) {
+    return switch (status.toLowerCase()) {
+      'confirmed' => strings.myBookingsConfirmedStatus,
+      'pending' => strings.myBookingsPendingStatus,
+      'completed' => strings.myBookingsCompletedStatus,
+      'cancelled' => strings.myBookingsCancelledStatus,
+      'rejected' => strings.myBookingsRejectedStatus,
+      _ => strings.myBookingsOtherStatus,
+    };
   }
 
   static Color _statusColor(String status) {

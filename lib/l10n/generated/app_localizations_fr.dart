@@ -676,7 +676,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Vérification du code impossible. Réessayez ou demandez un nouveau code.';
 
   @override
-  String get searchRoadToggle => 'Classer par détour routier (OSRM)';
+  String get searchRoadToggle => 'Classer selon le score hybride (OSRM)';
 
   @override
   String get searchRoadNearbyHint =>
@@ -705,7 +705,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String searchRoadResults(int count, int excluded) {
-    return 'Tri OSRM par détour supplémentaire parmi les offres présélectionnées. Offres retenues : $count. Offres non retenues : $excluded.';
+    return 'Classement hybride des offres présélectionnées selon le détour, l’horaire et les préférences. Offres retenues : $count. Offres non retenues : $excluded.';
   }
 
   @override
@@ -720,4 +720,656 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get searchRoadAttribution =>
       'Itinéraires : OSRM. Données : © contributeurs OpenStreetMap (ODbL).\nhttps://project-osrm.org/\nhttps://www.openstreetmap.org/copyright\nCorriger la carte : https://www.openstreetmap.org/fixthemap';
+
+  @override
+  String searchHybridDetour(int minutes, int score) {
+    return 'Détour de $minutes min · compatibilité $score %';
+  }
+
+  @override
+  String get searchPreferredTime => 'Heure souhaitée';
+
+  @override
+  String get searchChooseTime => 'Choisir l’heure souhaitée';
+
+  @override
+  String get searchRejectMatch => 'Refuser cette proposition';
+
+  @override
+  String get profileSettingsTitle => 'Profil et paramètres';
+
+  @override
+  String get profileLanguage => 'Langue de l’application';
+
+  @override
+  String get profileEdit => 'Modifier le profil';
+
+  @override
+  String get profileAccountMode => 'Type de compte';
+
+  @override
+  String get profileDriverMode => 'Mode conducteur';
+
+  @override
+  String get profileDriverEnabled => 'Mode conducteur activé';
+
+  @override
+  String get profileDriverDisabled => 'Mode conducteur désactivé';
+
+  @override
+  String get profileDriverModeDescription =>
+      'Vous pouvez publier et gérer des trajets';
+
+  @override
+  String get profileEnableDriverMode =>
+      'Activez cette option pour publier des trajets';
+
+  @override
+  String get profileQuickActions => 'Raccourcis';
+
+  @override
+  String get profileSearchRides => 'Rechercher un trajet';
+
+  @override
+  String get profileSearchRidesDescription =>
+      'Trouver et réserver des trajets disponibles';
+
+  @override
+  String get profileMyBookings => 'Mes réservations';
+
+  @override
+  String get profileMyBookingsDescription =>
+      'Consulter vos réservations de trajet';
+
+  @override
+  String get profileMessages => 'Messages';
+
+  @override
+  String get profileMessagesDescription =>
+      'Discuter avec les conducteurs et les passagers';
+
+  @override
+  String get profilePostRide => 'Publier un trajet';
+
+  @override
+  String get profilePostRideDescription => 'Créer une nouvelle offre de trajet';
+
+  @override
+  String get profileManageBookings => 'Gérer les réservations';
+
+  @override
+  String get profileManageBookingsDescription =>
+      'Accepter ou refuser les réservations des passagers';
+
+  @override
+  String get profileMyPostedRides => 'Mes trajets publiés';
+
+  @override
+  String get profileNoPostedRides => 'Aucun trajet publié pour le moment';
+
+  @override
+  String get profileLogout => 'Se déconnecter';
+
+  @override
+  String get profileLoggedOut => 'Vous êtes déconnecté.';
+
+  @override
+  String get profileVerification => 'Vérification';
+
+  @override
+  String get profileNotProvided => 'Non renseigné';
+
+  @override
+  String get profileVerified => 'Vérifié';
+
+  @override
+  String get profileNotVerified => 'Non vérifié';
+
+  @override
+  String get profilePendingReview => 'En attente d’examen';
+
+  @override
+  String get profileVerifyNow => 'Vérifier maintenant';
+
+  @override
+  String get profileFullyVerified =>
+      '🎉 Profil entièrement vérifié — vous êtes un membre de confiance.';
+
+  @override
+  String get profileVerificationEncouragement =>
+      'Les membres vérifiés inspirent davantage confiance. La vérification est gratuite.';
+
+  @override
+  String profileRating(String rating) {
+    return 'Note : $rating';
+  }
+
+  @override
+  String get profileDriverBadge => 'Conducteur';
+
+  @override
+  String profileReviewCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count avis',
+      one: '$count avis',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String profileCompletedTrips(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count trajets effectués',
+      one: '$count trajet effectué',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get profileRideCancelledStatus => 'Annulé';
+
+  @override
+  String profileSeatsAvailable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count places disponibles',
+      one: '$count place disponible',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String profilePricePerSeat(String price) {
+    return '$price / place';
+  }
+
+  @override
+  String get profileCancelRide => 'Annuler le trajet';
+
+  @override
+  String get profileCancelRideTitle => 'Annuler ce trajet ?';
+
+  @override
+  String profileCancelRideMessage(String origin, String destination) {
+    return 'Le trajet de $origin à $destination ne sera plus affiché.';
+  }
+
+  @override
+  String get profileKeepRide => 'Garder le trajet';
+
+  @override
+  String get profileRideCancelledNotice => 'Trajet annulé.';
+
+  @override
+  String get profileRideCancelFailed =>
+      'Impossible d’annuler le trajet. Réessayez.';
+
+  @override
+  String get profileLoadFailed => 'Impossible de charger le profil. Réessayez.';
+
+  @override
+  String get profileUpdateFailed =>
+      'Impossible de mettre à jour le profil. Réessayez.';
+
+  @override
+  String get profileVerifyIdTitle => 'Vérifier votre identité ?';
+
+  @override
+  String get profileVerifyIdMessage =>
+      'Votre demande sera examinée par notre équipe de soutien. Cela contribue à renforcer la confiance dans la communauté.';
+
+  @override
+  String get profileNotNow => 'Pas maintenant';
+
+  @override
+  String get profileRequestVerification => 'Demander la vérification';
+
+  @override
+  String get profileVerificationRequested =>
+      'Demande de vérification envoyée — en attente d’examen.';
+
+  @override
+  String get profileVerificationFailed =>
+      'Impossible de demander la vérification. Réessayez.';
+
+  @override
+  String get profileDriverRideStatusAvailable => 'Disponible';
+
+  @override
+  String get profileDriverRideStatusInProgress => 'En cours';
+
+  @override
+  String get profileDriverRideStatusCompleted => 'Terminé';
+
+  @override
+  String get profileDriverRideStatusOther => 'Autre';
+
+  @override
+  String get myBookings => 'Mes réservations';
+
+  @override
+  String get myBookingsUpcoming => 'À venir';
+
+  @override
+  String get myBookingsPast => 'Passés';
+
+  @override
+  String get myBookingsEmptyUpcoming => 'Aucune réservation à venir';
+
+  @override
+  String get myBookingsEmptyPast => 'Aucune réservation passée';
+
+  @override
+  String get myBookingsBrowseRides =>
+      'Explorez les trajets disponibles et réservez !';
+
+  @override
+  String get myBookingsHistoryHint =>
+      'L’historique de vos trajets apparaîtra ici.';
+
+  @override
+  String get myBookingsLoadFailed =>
+      'Impossible de charger vos réservations. Réessayez.';
+
+  @override
+  String get myBookingsCancelTitle => 'Annuler la réservation ?';
+
+  @override
+  String get myBookingsCancelConfirm =>
+      'Voulez-vous vraiment annuler cette réservation ?';
+
+  @override
+  String get myBookingsKeep => 'Garder la réservation';
+
+  @override
+  String get myBookingsCancel => 'Annuler la réservation';
+
+  @override
+  String get myBookingsCancelled => 'Réservation annulée.';
+
+  @override
+  String get myBookingsCancelFailed =>
+      'Impossible d’annuler la réservation. Réessayez.';
+
+  @override
+  String myBookingsRateDriver(String driver) {
+    return 'Évaluer $driver';
+  }
+
+  @override
+  String get myBookingsCommentOptional => 'Commentaire (facultatif)';
+
+  @override
+  String get myBookingsTripFeedbackHint => 'Comment s’est passé le trajet ?';
+
+  @override
+  String get myBookingsSubmit => 'Envoyer';
+
+  @override
+  String get myBookingsReviewThanks => 'Merci pour votre évaluation.';
+
+  @override
+  String get myBookingsReviewFailed =>
+      'Impossible d’envoyer votre évaluation. Réessayez.';
+
+  @override
+  String get myBookingsChatFailed =>
+      'Impossible d’ouvrir la conversation. Réessayez.';
+
+  @override
+  String get myBookingsStart => 'Départ';
+
+  @override
+  String get myBookingsEnd => 'Arrivée';
+
+  @override
+  String myBookingsDeparture(String date, String time) {
+    return 'Départ : $date à $time';
+  }
+
+  @override
+  String get myBookingsDriver => 'Conducteur';
+
+  @override
+  String myBookingsDriverRating(String driver, String rating) {
+    return '$driver ($rating ⭐)';
+  }
+
+  @override
+  String get myBookingsYourBooking => 'Votre réservation';
+
+  @override
+  String myBookingsSeatsAndTotal(int count, String price) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count places',
+      one: '$count place',
+    );
+    return '$_temp0 · $price';
+  }
+
+  @override
+  String myBookingsPickup(String location) {
+    return 'Prise en charge : $location';
+  }
+
+  @override
+  String get myBookingsAwaitingApproval =>
+      'En attente de l’approbation du conducteur';
+
+  @override
+  String get myBookingsLiveTrack => 'Suivi de sécurité en direct';
+
+  @override
+  String get myBookingsMessage => 'Message';
+
+  @override
+  String get myBookingsRateAction => 'Évaluer le conducteur';
+
+  @override
+  String get myBookingsConfirmedStatus => 'Confirmée';
+
+  @override
+  String get myBookingsPendingStatus => 'En attente';
+
+  @override
+  String get myBookingsCompletedStatus => 'Terminée';
+
+  @override
+  String get myBookingsCancelledStatus => 'Annulée';
+
+  @override
+  String get myBookingsRejectedStatus => 'Refusée';
+
+  @override
+  String get myBookingsOtherStatus => 'Autre';
+
+  @override
+  String get languageSaveFailed =>
+      'Impossible d’enregistrer la langue choisie. Réessayez.';
+
+  @override
+  String get editProfileTitle => 'Modifier le profil';
+
+  @override
+  String get editProfilePersonalInfo => 'Renseignements personnels';
+
+  @override
+  String get editProfileFirstName => 'Prénom';
+
+  @override
+  String get editProfileLastName => 'Nom';
+
+  @override
+  String get editProfilePhone => 'Téléphone';
+
+  @override
+  String get editProfileBio => 'À propos de moi';
+
+  @override
+  String get editProfileBioHint => 'Parlez un peu de vous aux passagers';
+
+  @override
+  String get editProfileContactMethod => 'Moyen de contact préféré';
+
+  @override
+  String get editProfileEmail => 'Courriel';
+
+  @override
+  String get editProfilePhoneContact => 'Téléphone';
+
+  @override
+  String get editProfileInAppChat => 'Messagerie de l’application';
+
+  @override
+  String get editProfileVehicle => 'Mon véhicule';
+
+  @override
+  String get editProfileVehicleHint =>
+      'Ces renseignements préremplissent vos offres et sont visibles aux passagers.';
+
+  @override
+  String get editProfileMake => 'Marque';
+
+  @override
+  String get editProfileMakeHint => 'Ex. : Toyota';
+
+  @override
+  String get editProfileModel => 'Modèle';
+
+  @override
+  String get editProfileModelHint => 'Ex. : Corolla';
+
+  @override
+  String get editProfileColor => 'Couleur';
+
+  @override
+  String get editProfileColorHint => 'Ex. : blanc';
+
+  @override
+  String get editProfileYear => 'Année';
+
+  @override
+  String get editProfileYearHint => 'Ex. : 2022';
+
+  @override
+  String get editProfilePlate => 'Plaque';
+
+  @override
+  String get editProfilePlateHint => 'Ex. : ABC 123';
+
+  @override
+  String get editProfileSave => 'Enregistrer les modifications';
+
+  @override
+  String get editProfileSaving => 'Enregistrement…';
+
+  @override
+  String get editProfileSaved => 'Profil mis à jour.';
+
+  @override
+  String get editProfileSaveFailed =>
+      'Impossible d’enregistrer le profil. Réessayez.';
+
+  @override
+  String get chatMessagesTitle => 'Messages';
+
+  @override
+  String get chatTitle => 'Conversation';
+
+  @override
+  String get chatRefresh => 'Actualiser';
+
+  @override
+  String get chatRetry => 'Réessayer';
+
+  @override
+  String get chatLoadFailed =>
+      'Impossible de charger les conversations. Réessayez.';
+
+  @override
+  String get chatSendFailed => 'Impossible d’envoyer le message. Réessayez.';
+
+  @override
+  String get chatEmptyTitle => 'Aucune conversation pour le moment';
+
+  @override
+  String get chatEmptyMessage =>
+      'Écrivez au conducteur d’un trajet ou à un passager de vos réservations pour commencer à discuter.';
+
+  @override
+  String get chatMember => 'Membre';
+
+  @override
+  String get chatNoMessages => 'Aucun message pour le moment';
+
+  @override
+  String get chatNow => 'À l’instant';
+
+  @override
+  String chatMinutesAgo(int minutes) {
+    return 'Il y a $minutes min';
+  }
+
+  @override
+  String chatHoursAgo(int hours) {
+    return 'Il y a $hours h';
+  }
+
+  @override
+  String chatDaysAgo(int days) {
+    return 'Il y a $days j';
+  }
+
+  @override
+  String get chatThreadEmptyTitle => 'Aucun message pour le moment';
+
+  @override
+  String get chatThreadEmptyMessage =>
+      'Dites bonjour et confirmez les détails de votre trajet.';
+
+  @override
+  String get chatPassenger => 'Passager';
+
+  @override
+  String chatBookingRequest(String passenger, int count, String price) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count places',
+      one: 'une place',
+    );
+    return '$passenger a demandé $_temp0 pour $price';
+  }
+
+  @override
+  String get chatDecline => 'Refuser';
+
+  @override
+  String get chatAccept => 'Accepter';
+
+  @override
+  String get chatWriteMessage => 'Écrire un message…';
+
+  @override
+  String get chatSend => 'Envoyer';
+
+  @override
+  String get driverBookingsTitle => 'Gérer les réservations';
+
+  @override
+  String get driverBookingsNoRidesTitle => 'Aucun trajet publié pour le moment';
+
+  @override
+  String get driverBookingsNoRidesMessage =>
+      'Publiez un trajet pour recevoir des demandes de réservation.';
+
+  @override
+  String get driverBookingsLoadFailed =>
+      'Impossible de charger les trajets et les réservations. Réessayez.';
+
+  @override
+  String get driverBookingsActionFailed =>
+      'Cette action a échoué. Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get driverBookingsAccepted => 'Réservation acceptée.';
+
+  @override
+  String get driverBookingsRejected => 'Réservation refusée.';
+
+  @override
+  String get driverBookingsCancelled => 'Réservation annulée.';
+
+  @override
+  String get driverBookingsRideCompleted => 'Trajet marqué comme terminé.';
+
+  @override
+  String driverBookingsDeparture(String date, String time) {
+    return 'Départ : $date à $time';
+  }
+
+  @override
+  String driverBookingsSeatsPrice(int count, String price) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count places',
+      one: '$count place',
+    );
+    return '$_temp0 · $price';
+  }
+
+  @override
+  String get driverBookingsNoBookings => 'Aucune réservation pour le moment';
+
+  @override
+  String get driverBookingsLiveTrack => 'Suivi de sécurité en direct';
+
+  @override
+  String get driverBookingsCompleteRide => 'Marquer le trajet comme terminé';
+
+  @override
+  String get driverBookingsPassenger => 'Passager';
+
+  @override
+  String driverBookingsPhone(String phone) {
+    return 'Téléphone : $phone';
+  }
+
+  @override
+  String driverBookingsPickup(String location) {
+    return 'Prise en charge : $location';
+  }
+
+  @override
+  String get driverBookingsMessage => 'Message';
+
+  @override
+  String get driverBookingsReject => 'Refuser';
+
+  @override
+  String get driverBookingsAccept => 'Accepter';
+
+  @override
+  String get driverBookingsCancel => 'Annuler';
+
+  @override
+  String get safetyShareButton => 'Partager mon trajet en direct';
+
+  @override
+  String get safetyConsentTitle => 'Consentement au partage';
+
+  @override
+  String get safetyConsentMessage =>
+      'Loi 25 du Québec : votre position GPS précise sera partagée avec toute personne détenant ce lien jusqu’à son expiration (3 heures) ou jusqu’à ce que vous arrêtiez le partage. Le lien n’exige pas de compte. Vous pouvez retirer votre consentement à tout moment en arrêtant le suivi.';
+
+  @override
+  String get safetyCancel => 'Annuler';
+
+  @override
+  String get safetyStartSharing => 'J’accepte et partager';
+
+  @override
+  String get safetyStopSharing => 'Arrêter le partage';
+
+  @override
+  String get safetySharingStarted => 'Le partage de position est actif.';
+
+  @override
+  String get safetySharingStopped => 'Le partage de position est arrêté.';
+
+  @override
+  String get safetyShareFailed =>
+      'Impossible de démarrer le partage de position. Vérifiez les autorisations et réessayez.';
+
+  @override
+  String get safetyRideNotActive =>
+      'Le suivi est disponible lorsque le trajet est en cours.';
 }

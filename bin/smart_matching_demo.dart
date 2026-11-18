@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:supabase_flutter_app/models/matching_models.dart';
 import 'package:supabase_flutter_app/services/matching_service.dart';
 
@@ -32,12 +34,12 @@ void main() {
   );
 
   final idealResult = service.calculateMatchScore(idealOffer, idealRequest);
-  print('Test case 1: Ideal match');
-  print('  score: ${idealResult.score}');
-  print('  badge: ${idealResult.badgeLabel}');
-  print('  detour: ${idealResult.detourKm} km');
-  print('  time diff: ${idealResult.timeDifferenceMinutes} minutes');
-  print('  eligible: ${idealResult.isEligible}');
+  stdout.writeln('Test case 1: Ideal match');
+  stdout.writeln('  score: ${idealResult.score}');
+  stdout.writeln('  badge: ${idealResult.badgeLabel}');
+  stdout.writeln('  detour: ${idealResult.detourKm} km');
+  stdout.writeln('  time diff: ${idealResult.timeDifferenceMinutes} minutes');
+  stdout.writeln('  eligible: ${idealResult.isEligible}');
 
   assert(idealResult.score >= 80.0);
   assert(idealResult.isEligible);
@@ -69,18 +71,22 @@ void main() {
     hasLargeLuggage: true,
   );
 
-  final constrainedResult =
-      service.calculateMatchScore(constrainedOffer, constrainedRequest);
+  final constrainedResult = service.calculateMatchScore(
+    constrainedOffer,
+    constrainedRequest,
+  );
 
-  print('\nTest case 2: Preference-excluded match');
-  print('  score: ${constrainedResult.score}');
-  print('  badge: ${constrainedResult.badgeLabel}');
-  print('  detour: ${constrainedResult.detourKm} km');
-  print('  time diff: ${constrainedResult.timeDifferenceMinutes} minutes');
-  print('  eligible: ${constrainedResult.isEligible}');
+  stdout.writeln('\nTest case 2: Preference-excluded match');
+  stdout.writeln('  score: ${constrainedResult.score}');
+  stdout.writeln('  badge: ${constrainedResult.badgeLabel}');
+  stdout.writeln('  detour: ${constrainedResult.detourKm} km');
+  stdout.writeln(
+    '  time diff: ${constrainedResult.timeDifferenceMinutes} minutes',
+  );
+  stdout.writeln('  eligible: ${constrainedResult.isEligible}');
 
   assert(constrainedResult.score < 80.0);
   assert(!constrainedResult.isEligible || constrainedResult.score <= 70.0);
 
-  print('\nStandalone matching checks completed successfully.');
+  stdout.writeln('\nStandalone matching checks completed successfully.');
 }

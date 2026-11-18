@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/conversation.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
@@ -26,6 +28,7 @@ class _ChatListPageState extends State<ChatListPage> {
 
   List<Conversation> _conversations = [];
   bool _loading = true;
+  bool _loadFailed = false;
   RealtimeChannel? _channel;
 
   String? get _myId => _authService.currentUser?.id;
@@ -45,7 +48,10 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Future<void> _loadConversations() async {
     final userId = _myId;
-    if (userId == null) return;
+    if (userId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
 
     try {
       final conversations = await _dbService.getConversations(userId);
@@ -53,11 +59,15 @@ class _ChatListPageState extends State<ChatListPage> {
       setState(() {
         _conversations = conversations;
         _loading = false;
+        _loadFailed = false;
       });
     } catch (e) {
       debugPrint('Error loading conversations: $e');
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
     }
   }
 
@@ -80,19 +90,34 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Messages'),
+        title: Text(strings.chatMessagesTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: strings.chatRefresh,
             onPressed: _loadConversations,
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _loadFailed
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(strings.chatLoadFailed),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _loadConversations,
+                    child: Text(strings.chatRetry),
+                  ),
+                ],
+              ),
+            )
           : _conversations.isEmpty
               ? _EmptyState()
               : RefreshIndicator(
@@ -116,6 +141,7 @@ class _ChatListPageState extends State<ChatListPage> {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -123,15 +149,14 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            'No conversations yet',
+            strings.chatEmptyTitle,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Message a driver from a ride or a passenger from your bookings '
-              'to start chatting.',
+              strings.chatEmptyMessage,
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -155,6 +180,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final other = conversation.otherParty(myId);
     final lastMessage = conversation.lastMessage;
     final unread = conversation.hasUnread(myId) && lastMessage != null;
@@ -175,7 +201,7 @@ class _ConversationTile extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-              other?.displayName ?? 'Member',
+              other?.displayName ?? strings.chatMember,
               style: TextStyle(
                 fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
               ),
@@ -192,7 +218,7 @@ class _ConversationTile extends StatelessWidget {
         lastMessage?.isNotEmpty == true
             ? lastMessage!
             : (conversation.ride == null
-                ? 'No messages yet'
+                ? strings.chatNoMessages
                 : '${conversation.ride!.originAddress} → '
                   '${conversation.ride!.destinationAddress}'),
         maxLines: 1,
@@ -205,18 +231,21 @@ class _ConversationTile extends StatelessWidget {
         ),
       ),
       trailing: Text(
-        _relativeTime(conversation.lastMessageAt),
+        _relativeTime(context, conversation.lastMessageAt),
         style: Theme.of(context).textTheme.bodySmall,
       ),
     );
   }
 
-  static String _relativeTime(DateTime time) {
+  static String _relativeTime(BuildContext context, DateTime time) {
+    final strings = AppLocalizations.of(context);
     final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m';
-    if (diff.inDays < 1) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return '${time.month}/${time.day}';
+    if (diff.inMinutes < 1) return strings.chatNow;
+    if (diff.inHours < 1) return strings.chatMinutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return strings.chatHoursAgo(diff.inHours);
+    if (diff.inDays < 7) return strings.chatDaysAgo(diff.inDays);
+    return DateFormat.Md(Localizations.localeOf(context).toString()).format(
+      time,
+    );
   }
 }

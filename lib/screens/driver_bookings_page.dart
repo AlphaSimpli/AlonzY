@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/app_formatters.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../models/booking.dart';
 import '../models/conversation.dart';
 import '../models/ride.dart';
@@ -63,12 +66,14 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       });
 
       _subscribeToBookingUpdates(rides.map((r) => r.id).toSet());
-    } catch (e) {
-      debugPrint('Error loading rides and bookings: $e');
+    } catch (error) {
+      debugPrint('Error loading rides and bookings: $error');
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading bookings: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsLoadFailed),
+        ),
       );
     }
   }
@@ -100,12 +105,17 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       await _dbService.approveBooking(bookingId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Booking accepted')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsAccepted),
+        ),
       );
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not accept booking: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+        ),
       );
     }
   }
@@ -115,12 +125,17 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       await _dbService.rejectBooking(bookingId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Booking rejected')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsRejected),
+        ),
       );
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not reject booking: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+        ),
       );
     }
   }
@@ -130,12 +145,17 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       await _dbService.cancelBookingAsDriver(bookingId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Booking cancelled')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsCancelled),
+        ),
       );
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not cancel booking: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not cancel booking: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+        ),
       );
     }
   }
@@ -145,13 +165,20 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       await _dbService.completeRide(ride.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Ride marked as completed')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).driverBookingsRideCompleted,
+          ),
+        ),
       );
       _loadRidesAndBookings();
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not complete ride: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+        ),
       );
     }
   }
@@ -195,19 +222,23 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not open booking chat: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Could not open chat: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).myBookingsChatFailed),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Bookings'),
+        title: Text(strings.driverBookingsTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -245,6 +276,7 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -252,12 +284,12 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.directions_car, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            'No rides posted yet',
+            strings.driverBookingsNoRidesTitle,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
-            'Post a ride to start receiving booking requests.',
+            strings.driverBookingsNoRidesMessage,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
@@ -289,7 +321,9 @@ class _RideBookingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final departure = ride.departureTime;
+    final locale = Localizations.localeOf(context).toString();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -305,13 +339,15 @@ class _RideBookingsCard extends StatelessWidget {
             Row(
               children: [
                 Chip(
-                  label: Text(ride.status),
+                  label: Text(_localizedRideStatus(strings, ride.status)),
                   backgroundColor: _statusColor(ride.status),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${ride.availableSeats} seats | '
-                  '\$${ride.pricePerSeat.toStringAsFixed(2)}',
+                  strings.driverBookingsSeatsPrice(
+                    ride.availableSeats,
+                    formatCadMoney(context, ride.pricePerSeat),
+                  ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -319,9 +355,10 @@ class _RideBookingsCard extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          'Departs: ${departure.month}/${departure.day} at '
-          '${departure.hour.toString().padLeft(2, '0')}:'
-          '${departure.minute.toString().padLeft(2, '0')}',
+          strings.driverBookingsDeparture(
+            DateFormat.yMMMd(locale).format(departure),
+            DateFormat.jm(locale).format(departure),
+          ),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         children: [
@@ -330,7 +367,7 @@ class _RideBookingsCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'No bookings yet',
+                strings.driverBookingsNoBookings,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             )
@@ -354,7 +391,7 @@ class _RideBookingsCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onTrack,
                   icon: const Icon(Icons.my_location),
-                  label: const Text('Live Safety Track'),
+                  label: Text(strings.driverBookingsLiveTrack),
                 ),
               ),
             ),
@@ -368,7 +405,7 @@ class _RideBookingsCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onComplete,
                   icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Mark ride as completed'),
+                  label: Text(strings.driverBookingsCompleteRide),
                 ),
               ),
             ),
@@ -391,6 +428,7 @@ class _RideBookingsCard extends StatelessWidget {
       default:
         return Colors.grey[100]!;
     }
+
   }
 }
 
@@ -411,6 +449,7 @@ class _BookingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final passenger = booking.passenger;
 
     return Padding(
@@ -426,30 +465,33 @@ class _BookingTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      passenger?.displayName ?? 'Passenger',
+                      passenger?.displayName ??
+                          strings.driverBookingsPassenger,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${booking.seatsBooked} seats - '
-                      '\$${booking.totalPrice.toStringAsFixed(2)}',
+                      strings.driverBookingsSeatsPrice(
+                        booking.seatsBooked,
+                        formatCadMoney(context, booking.totalPrice),
+                      ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    if (passenger?.phone != null)
+                    if (passenger?.phone?.isNotEmpty == true)
                       Text(
-                        'Phone: ${passenger!.phone}',
+                        strings.driverBookingsPhone(passenger!.phone!),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     if (booking.pickupLocation != null)
                       Text(
-                        'Pickup: ${booking.pickupLocation}',
+                        strings.driverBookingsPickup(booking.pickupLocation!),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                   ],
                 ),
               ),
               Chip(
-                label: Text(booking.status),
+                label: Text(_localizedBookingStatus(strings, booking.status)),
                 backgroundColor: _statusColor(booking.status),
               ),
             ],
@@ -462,7 +504,7 @@ class _BookingTile extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onMessage,
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Message'),
+                    label: Text(strings.driverBookingsMessage),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -475,7 +517,7 @@ class _BookingTile extends StatelessWidget {
                         side: const BorderSide(color: Colors.red),
                       ),
                       icon: const Icon(Icons.close),
-                      label: const Text('Reject'),
+                      label: Text(strings.driverBookingsReject),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -483,7 +525,7 @@ class _BookingTile extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onAccept,
                       icon: const Icon(Icons.check),
-                      label: const Text('Accept'),
+                      label: Text(strings.driverBookingsAccept),
                     ),
                   ),
                 ] else ...[
@@ -495,7 +537,7 @@ class _BookingTile extends StatelessWidget {
                         side: const BorderSide(color: Colors.red),
                       ),
                       icon: const Icon(Icons.close),
-                      label: const Text('Cancel'),
+                      label: Text(strings.driverBookingsCancel),
                     ),
                   ),
                 ],
@@ -521,5 +563,24 @@ class _BookingTile extends StatelessWidget {
       default:
         return Colors.grey[100]!;
     }
+
   }
 }
+
+String _localizedRideStatus(AppLocalizations strings, String status) =>
+    switch (status.toLowerCase()) {
+      'available' => strings.profileDriverRideStatusAvailable,
+      'in_progress' => strings.profileDriverRideStatusInProgress,
+      'completed' => strings.profileDriverRideStatusCompleted,
+      _ => strings.profileDriverRideStatusOther,
+    };
+
+String _localizedBookingStatus(AppLocalizations strings, String status) =>
+    switch (status.toLowerCase()) {
+      'confirmed' || 'accepted' => strings.myBookingsConfirmedStatus,
+      'pending' => strings.myBookingsPendingStatus,
+      'completed' => strings.myBookingsCompletedStatus,
+      'cancelled' => strings.myBookingsCancelledStatus,
+      'rejected' => strings.myBookingsRejectedStatus,
+      _ => strings.myBookingsOtherStatus,
+    };

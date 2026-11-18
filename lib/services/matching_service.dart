@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import '../models/matching_models.dart';
+import '../models/ride.dart';
+import 'road_route_service.dart';
 import 'osrm_service.dart';
 
 /// Smart matching engine that evaluates an offer against a passenger request.
@@ -27,6 +29,110 @@ class MatchingService {
     final detourKm = _calculateTotalDetourKm(offer, request);
     return _scoreWithDetour(offer, request, detourKm);
   }
+
+  MatchingResult calculateMatchScoreWithDetour(
+    RideOffer offer,
+    PassengerRequest request, {
+    required double detourKm,
+  }) {
+    if (!detourKm.isFinite || detourKm < 0) {
+      throw ArgumentError.value(detourKm, 'detourKm');
+    }
+    if (offer.availableSeats < 1) {
+      return calculateMatchScore(offer, request);
+    }
+    return _scoreWithDetour(offer, request, detourKm);
+  }
+
+  double calculatePreferenceScore(RideOffer offer, PassengerRequest request) =>
+      _calculatePreferenceScore(offer, request);
+
+  /// Performs the database-prefiltered candidate matching with one OSRM table
+  /// request, then applies the same deterministic scoring rules as other flows.
+  Future<HybridRideSearch> rankRides({
+    required List<Ride> candidates,
+    required PassengerRequest request,
+    required OsrmCoordinate pickup,
+    required OsrmCoordinate dropoff,
+    required RoadRouteService routingService,
+  }) async {
+    final snapshot = List<Ride>.of(candidates);
+    if (snapshot.isEmpty) {
+      return const HybridRideSearch(matches: [], excludedCount: 0);
+    }
+
+    final routable = snapshot
+        .where(
+          (ride) =>
+              ride.status == 'available' &&
+              ride.availableSeats > 0 &&
+              _validCoordinate(ride.originLat, ride.originLng) &&
+              _validCoordinate(ride.destinationLat, ride.destinationLng),
+        )
+        .toList();
+    final detours = await routingService.calculateDetours(
+      candidates: routable,
+      pickup: pickup,
+      dropoff: dropoff,
+    );
+    final byRideId = {for (final detour in detours) detour.rideId: detour};
+    final matches = <HybridRideMatch>[];
+    for (final ride in routable) {
+      final detour = byRideId[ride.id];
+      if (detour == null || detour.extraDistanceKm > 15) continue;
+      final offer = _rideOffer(ride);
+      final result = calculateMatchScoreWithDetour(
+        offer,
+        request,
+        detourKm: detour.extraDistanceKm,
+      );
+      if (result.isEligible) {
+        matches.add(
+          HybridRideMatch(
+            ride: ride,
+            detour: detour,
+            match: result,
+            preferenceScore: calculatePreferenceScore(offer, request),
+          ),
+        );
+      }
+    }
+    matches.sort((a, b) {
+      final byScore = b.match.score.compareTo(a.match.score);
+      if (byScore != 0) return byScore;
+      final byDetour = a.detour.extraDurationSeconds.compareTo(
+        b.detour.extraDurationSeconds,
+      );
+      if (byDetour != 0) return byDetour;
+      final byDeparture = a.ride.departureTime.compareTo(b.ride.departureTime);
+      return byDeparture != 0 ? byDeparture : a.ride.id.compareTo(b.ride.id);
+    });
+    return HybridRideSearch(
+      matches: matches,
+      excludedCount: snapshot.length - matches.length,
+    );
+  }
+
+  static bool _validCoordinate(double latitude, double longitude) =>
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180 &&
+      !(latitude == 0 && longitude == 0);
+
+  static RideOffer _rideOffer(Ride ride) => RideOffer(
+    id: ride.id,
+    driverName: ride.driver?.displayName ?? '',
+    startLatitude: ride.originLat,
+    startLongitude: ride.originLng,
+    endLatitude: ride.destinationLat,
+    endLongitude: ride.destinationLng,
+    departureTime: ride.departureTime,
+    availableSeats: ride.availableSeats,
+    allowsSmoking: false,
+    acceptsPets: ride.petsAllowed,
+    hasLargeTrunk: ride.luggagePolicy == 'large',
+  );
 
   /// First integration stage: preserve the score's weights and preferences,
   /// replacing only the geographic proxy with additional road distance.
@@ -196,4 +302,24 @@ class RoutedMatchingResult {
   const RoutedMatchingResult({required this.match, required this.detour});
   final MatchingResult match;
   final OsrmDetourEstimate? detour;
+}
+
+class HybridRideMatch {
+  const HybridRideMatch({
+    required this.ride,
+    required this.detour,
+    required this.match,
+    required this.preferenceScore,
+  });
+
+  final Ride ride;
+  final RoadRouteDetour detour;
+  final MatchingResult match;
+  final double preferenceScore;
+}
+
+class HybridRideSearch {
+  const HybridRideSearch({required this.matches, required this.excludedCount});
+  final List<HybridRideMatch> matches;
+  final int excludedCount;
 }

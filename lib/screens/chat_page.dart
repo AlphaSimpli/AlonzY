@@ -6,6 +6,8 @@ import '../models/app_user.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../models/booking.dart';
+import '../l10n/app_formatters.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
@@ -137,12 +139,15 @@ class _ChatPageState extends State<ChatPage> {
         conversationId: widget.conversation.id,
         message: text,
       );
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not send chat message: $error');
       if (!mounted) return;
       setState(() =>
           _messages = _messages.where((m) => m.id != optimistic.id).toList());
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Could not send message: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).chatSendFailed),
+        ),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -160,6 +165,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final ride = widget.conversation.ride;
     final other = _otherParty;
     final isDriver = _myId == widget.conversation.driverId;
@@ -187,7 +193,7 @@ class _ChatPageState extends State<ChatPage> {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    other?.displayName ?? 'Chat',
+                    other?.displayName ?? strings.chatTitle,
                     style: const TextStyle(fontSize: 16),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -264,7 +270,8 @@ class _BookingApprovalBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final passenger = booking.passenger?.displayName ?? 'Passenger';
+    final strings = AppLocalizations.of(context);
+    final passenger = booking.passenger?.displayName ?? strings.chatPassenger;
     return Material(
       color: Colors.amber.shade50,
       child: Padding(
@@ -272,22 +279,27 @@ class _BookingApprovalBanner extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$passenger requested ${booking.seatsBooked} seat(s) '
-                'for \$${booking.totalPrice.toStringAsFixed(2)}'),
+            Text(
+              strings.chatBookingRequest(
+                passenger,
+                booking.seatsBooked,
+                formatCadMoney(context, booking.totalPrice),
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: onDecline,
-                    child: const Text('Decline'),
+                    child: Text(strings.chatDecline),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: onAccept,
-                    child: const Text('Accept'),
+                    child: Text(strings.chatAccept),
                   ),
                 ),
               ],
@@ -302,6 +314,7 @@ class _BookingApprovalBanner extends StatelessWidget {
 class _EmptyThread extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -309,12 +322,12 @@ class _EmptyThread extends StatelessWidget {
           Icon(Icons.forum_outlined, size: 56, color: Colors.grey[400]),
           const SizedBox(height: 12),
           Text(
-            'No messages yet',
+            strings.chatThreadEmptyTitle,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
           Text(
-            'Say hi and confirm the details of your trip.',
+            strings.chatThreadEmptyMessage,
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -397,6 +410,7 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return SafeArea(
       top: false,
       child: Container(
@@ -416,8 +430,8 @@ class _Composer extends StatelessWidget {
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => onSend(),
-                decoration: const InputDecoration(
-                  hintText: 'Write a message…',
+                decoration: InputDecoration(
+                  hintText: strings.chatWriteMessage,
                   isDense: true,
                   filled: true,
                   contentPadding:
@@ -439,7 +453,7 @@ class _Composer extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.send),
-              tooltip: 'Send',
+              tooltip: strings.chatSend,
             ),
           ],
         ),

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="supabase-url" content="">
+    <meta name="supabase-anon-key" content="">
+    <title>AlonzY — suivi de trajet</title>
+    <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
+    <style>
+      html, body { height: 100%; margin: 0; font: 16px system-ui, sans-serif; }
+      #map { height: 100%; }
+      #status { position: absolute; z-index: 1; top: 12px; left: 12px; right: 12px;
+        padding: 12px 16px; border-radius: 10px; background: #fff; box-shadow: 0 2px 12px #0002; }
+      #attribution { position: absolute; bottom: 8px; right: 8px; z-index: 1;
+        background: #fff; padding: 3px 6px; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div id="status" role="status">Chargement du suivi…</div>
+    <div id="map" aria-label="Carte de la position partagée"></div>
+    <div id="attribution">© OpenStreetMap contributors</div>
+    <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      // Deployment may inject window.ALONZY_CONFIG before this script or set
+      // the two public Supabase meta tags above. Never inject a service key.
+      const runtimeConfig = window.ALONZY_CONFIG ?? {};
+      const metaContent = (name) =>
+        document.querySelector(`meta[name="${name}"]`)?.content?.trim() ?? '';
+      const SUPABASE_URL =
+        runtimeConfig.SUPABASE_URL ?? metaContent('supabase-url');
+      const SUPABASE_ANON_KEY =
+        runtimeConfig.SUPABASE_ANON_KEY ?? metaContent('supabase-anon-key');
+      const token = new URLSearchParams(window.location.search).get('token');
+      const status = document.getElementById('status');
+      let marker;
+      let mapReady = false;
+      let latestPosition;
+      const map = new maplibregl.Map({
+        container: 'map',
+        style: {
+          version: 8,
+          sources: {
+            osm: {
+              type: 'raster',
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              attribution: '© OpenStreetMap contributors'
+            }
+          },
+          layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+        },
+        center: [-73.5673, 45.5017],
+        zoom: 10
+      });
+      map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+      map.on('load', () => {
+        mapReady = true;
+        if (latestPosition) renderPosition(latestPosition);
+      });
+
+      function showStatus(message) {
+        status.textContent = message;
+      }
+
+      function renderPosition(position) {
+        if (!mapReady) return;
+        const point = [Number(position.lng), Number(position.lat)];
+        if (!marker) {
+          marker = new maplibregl.Marker({ color: '#10B981' })
+            .setLngLat(point)
+            .addTo(map);
+          map.flyTo({ center: point, zoom: 14 });
+        } else {
+          marker.setLngLat(point);
+        }
+        const timestamp = new Date(position.recorded_at).toLocaleTimeString();
+        showStatus(`Position mise à jour à ${timestamp}`);
+      }
+
+      async function refreshPosition(client) {
+        try {
+          const { data, error } = await client.rpc('get_shared_position', {
+            share_token: token
+          });
+          if (error) throw error;
+          const position = Array.isArray(data) ? data[0] : data;
+          if (!position ||
+              !Number.isFinite(Number(position.lat)) ||
+              !Number.isFinite(Number(position.lng))) {
+            showStatus('Lien invalide ou expiré, ou trajet terminé. Demandez un nouveau lien au passager.');
+            return;
+          }
+          latestPosition = {
+            lat: Number(position.lat),
+            lng: Number(position.lng),
+            recorded_at: position.recorded_at
+          };
+          renderPosition(latestPosition);
+        } catch (error) {
+          console.error('Safety tracker refresh failed:', error);
+          showStatus('Le suivi est momentanément indisponible. Réessayez plus tard.');
+        }
+      }
+
+      async function start() {
+        if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+          showStatus('Lien de suivi invalide ou incomplet.');
+          return;
+        }
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+          showStatus('Le suivi n’est pas configuré avec les paramètres publics Supabase.');
+          return;
+        }
+        let client;
+        try {
+          client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+          });
+        } catch (error) {
+          console.error('Safety tracker configuration failed:', error);
+          showStatus('Impossible d’initialiser le suivi. Vérifiez la configuration.');
+          return;
+        }
+        await refreshPosition(client);
+        window.setInterval(() => refreshPosition(client), 12000);
+      }
+
+      start();
+    </script>
+  </body>
+</html>

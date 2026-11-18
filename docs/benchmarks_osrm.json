@@ -1,0 +1,119 @@
+{
+  "created_at_utc": "2026-11-18T09:25:14.291471+00:00",
+  "osrm_base_url": "https://router.project-osrm.org",
+  "measurement_scope": "OSRM matrix request, batching, response parsing, and detour calculation; excludes Supabase candidate search and Flutter rendering",
+  "sample_kind": "fixed synthetic candidate routes in the Gatineau–Ottawa area",
+  "passenger_pickup": {
+    "lat": 45.4242,
+    "lng": -75.695
+  },
+  "passenger_dropoff": {
+    "lat": 45.4765,
+    "lng": -75.7013
+  },
+  "batch_coordinate_limit": 50,
+  "candidates_per_batch": 24,
+  "target_ms": 1500,
+  "scenarios": [
+    {
+      "candidate_count": 10,
+      "elapsed_ms": 706.31,
+      "osrm_requests": 1,
+      "returned_routes": 10,
+      "target_ms": 1500,
+      "meets_target": true,
+      "status": "ok"
+    },
+    {
+      "candidate_count": 50,
+      "elapsed_ms": 546.22,
+      "osrm_requests": 3,
+      "returned_routes": 50,
+      "target_ms": 1500,
+      "meets_target": true,
+      "status": "ok"
+    },
+    {
+      "candidate_count": 100,
+      "elapsed_ms": 543.02,
+      "osrm_requests": 5,
+      "returned_routes": 100,
+      "target_ms": 1500,
+      "meets_target": true,
+      "status": "ok"
+    }
+  ],
+  "detour_comparison": [
+    {
+      "route": "Centre Ottawa–Hull",
+      "haversine_detour_km": 0.058,
+      "osrm_detour_km": 0.003,
+      "absolute_difference_km": 0.055,
+      "osrm_extra_duration_min": 0.48
+    },
+    {
+      "route": "Kanata–Hull",
+      "haversine_detour_km": 2.393,
+      "osrm_detour_km": 2.068,
+      "absolute_difference_km": 0.325,
+      "osrm_extra_duration_min": 3.33
+    },
+    {
+      "route": "Orléans–Aylmer",
+      "haversine_detour_km": 8.136,
+      "osrm_detour_km": 13.111,
+      "absolute_difference_km": 4.976,
+      "osrm_extra_duration_min": 14.5
+    },
+    {
+      "route": "Nepean–Gatineau",
+      "haversine_detour_km": 0.574,
+      "osrm_detour_km": 2.068,
+      "absolute_difference_km": 1.494,
+      "osrm_extra_duration_min": 3.33
+    },
+    {
+      "route": "Barrhaven–Hull",
+      "haversine_detour_km": 0.181,
+      "osrm_detour_km": 2.068,
+      "absolute_difference_km": 1.887,
+      "osrm_extra_duration_min": 3.34
+    },
+    {
+      "route": "Hull–Ottawa Est",
+      "haversine_detour_km": 11.672,
+      "osrm_detour_km": 16.891,
+      "absolute_difference_km": 5.219,
+      "osrm_extra_duration_min": 22.15
+    },
+    {
+      "route": "Aylmer–Centre Ottawa",
+      "haversine_detour_km": 12.2,
+      "osrm_detour_km": 17.08,
+      "absolute_difference_km": 4.88,
+      "osrm_extra_duration_min": 22.22
+    },
+    {
+      "route": "Chelsea–Ottawa Ouest",
+      "haversine_detour_km": 14.635,
+      "osrm_detour_km": 15.805,
+      "absolute_difference_km": 1.169,
+      "osrm_extra_duration_min": 21.28
+    },
+    {
+      "route": "Gatineau Est–Ottawa",
+      "haversine_detour_km": 11.618,
+      "osrm_detour_km": 16.891,
+      "absolute_difference_km": 5.273,
+      "osrm_extra_duration_min": 22.15
+    },
+    {
+      "route": "Ottawa Sud–Gatineau",
+      "haversine_detour_km": 0.064,
+      "osrm_detour_km": 0.952,
+      "absolute_difference_km": 0.888,
+      "osrm_extra_duration_min": 2.86
+    }
+  ],
+  "status": "complete"
+}

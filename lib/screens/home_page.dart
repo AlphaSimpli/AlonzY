@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_locale_controller.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'chat_list_page.dart';
@@ -241,19 +242,39 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Image.asset(
-        'assets/images/alonzy_logo.png',
-        height: 72,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return const Text(
+    final strings = AppLocalizations.of(context);
+    final selected = Localizations.localeOf(context).languageCode;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Image.asset(
+          'assets/images/alonzy_logo.png',
+          height: 72,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const Text(
             'AlonzY',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          );
-        },
-      ),
+          ),
+        ),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'fr', label: Text('FR')),
+            ButtonSegment(value: 'en', label: Text('EN')),
+          ],
+          selected: {selected},
+          showSelectedIcon: false,
+          onSelectionChanged: (value) async {
+            try {
+              await AppLocaleController.setLanguage(value.first);
+            } catch (_) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(strings.languageSaveFailed)),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }

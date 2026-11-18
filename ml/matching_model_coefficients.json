@@ -1,0 +1,24 @@
+{
+  "coefficients": {
+    "detour_min": -0.03241295193445982,
+    "pref_score": 2.1515835381780506,
+    "price": -0.016081594973230987,
+    "time_gap_min": -0.012450381207427082
+  },
+  "features": [
+    "detour_min",
+    "time_gap_min",
+    "pref_score",
+    "price"
+  ],
+  "intercept": 1.1013466922285433,
+  "metrics": {
+    "log_loss": 0.5867109765525376,
+    "roc_auc": 0.7512031174979621
+  },
+  "offers": 2000,
+  "passengers": 200,
+  "seed": 42,
+  "test_rows": 600,
+  "training_rows": 1400
+}

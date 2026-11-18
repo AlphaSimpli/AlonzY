@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/app_user.dart';
 import '../services/database_service.dart';
 
@@ -95,27 +96,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Profile updated')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).editProfileSaved),
+        ),
       );
       Navigator.pop(context, true);
-    } catch (e) {
+    } catch (error) {
+      debugPrint('Could not save edited profile: $error');
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save profile: $e')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).editProfileSaveFailed),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit profile')),
+      appBar: AppBar(title: Text(strings.editProfileTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _Section(
-            title: 'Personal info',
+            title: strings.editProfilePersonalInfo,
             children: [
               Row(
                 children: [
@@ -124,8 +131,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       controller: _firstNameController,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'First name',
+                      decoration: InputDecoration(
+                        labelText: strings.editProfileFirstName,
                         prefixIcon: Icon(Icons.person_outline),
                       ),
                     ),
@@ -136,7 +143,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       controller: _lastNameController,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(labelText: 'Last name'),
+                      decoration: InputDecoration(
+                        labelText: strings.editProfileLastName,
+                      ),
                     ),
                   ),
                 ],
@@ -149,8 +158,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'Phone',
+                decoration: InputDecoration(
+                  labelText: strings.editProfilePhone,
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
               ),
@@ -159,32 +168,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 controller: _bioController,
                 maxLines: 3,
                 textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
-                  labelText: 'Bio',
+                decoration: InputDecoration(
+                  labelText: strings.editProfileBio,
                   alignLabelWithHint: true,
                   prefixIcon: Icon(Icons.edit_note),
-                  hintText: 'Tell passengers a bit about yourself',
+                  hintText: strings.editProfileBioHint,
                 ),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _contactPreference,
-                decoration: const InputDecoration(
-                  labelText: 'Preferred contact method',
+                decoration: InputDecoration(
+                  labelText: strings.editProfileContactMethod,
                   prefixIcon: Icon(Icons.contact_phone_outlined),
                 ),
-                items: const [
+                items: [
                   DropdownMenuItem(
                     value: 'email',
-                    child: Text('Email'),
+                    child: Text(strings.editProfileEmail),
                   ),
                   DropdownMenuItem(
                     value: 'phone',
-                    child: Text('Phone'),
+                    child: Text(strings.editProfilePhoneContact),
                   ),
                   DropdownMenuItem(
                     value: 'in_app',
-                    child: Text('In-app chat'),
+                    child: Text(strings.editProfileInAppChat),
                   ),
                 ],
                 onChanged: (value) {
@@ -198,9 +207,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           const SizedBox(height: 16),
           if (widget.user.isDriver)
             _Section(
-              title: 'My vehicle',
-              subtitle:
-                  'Used to pre-fill your ride postings and shown to passengers.',
+              title: strings.editProfileVehicle,
+              subtitle: strings.editProfileVehicleHint,
               children: [
                 Row(
                   children: [
@@ -209,9 +217,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         controller: _makeController,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Make',
-                          hintText: 'e.g. Toyota',
+                        decoration: InputDecoration(
+                          labelText: strings.editProfileMake,
+                          hintText: strings.editProfileMakeHint,
                         ),
                       ),
                     ),
@@ -221,9 +229,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         controller: _modelController,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Model',
-                          hintText: 'e.g. Corolla',
+                        decoration: InputDecoration(
+                          labelText: strings.editProfileModel,
+                          hintText: strings.editProfileModelHint,
                         ),
                       ),
                     ),
@@ -237,9 +245,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         controller: _colorController,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Color',
-                          hintText: 'e.g. White',
+                        decoration: InputDecoration(
+                          labelText: strings.editProfileColor,
+                          hintText: strings.editProfileColorHint,
                         ),
                       ),
                     ),
@@ -253,9 +261,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(4),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Year',
-                          hintText: 'e.g. 2022',
+                        decoration: InputDecoration(
+                          labelText: strings.editProfileYear,
+                          hintText: strings.editProfileYearHint,
                         ),
                       ),
                     ),
@@ -265,9 +273,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 TextField(
                   controller: _plateController,
                   textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(
-                    labelText: 'Plate',
-                    hintText: 'e.g. ABC 123',
+                  decoration: InputDecoration(
+                    labelText: strings.editProfilePlate,
+                    hintText: strings.editProfilePlateHint,
                   ),
                 ),
               ],
@@ -285,7 +293,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                   )
                 : const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Saving…' : 'Save changes'),
+            label: Text(
+              _saving ? strings.editProfileSaving : strings.editProfileSave,
+            ),
           ),
         ],
       ),

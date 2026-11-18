@@ -47,6 +47,49 @@ supabase link --project-id <YOUR_PROJECT_ID>
 supabase db push
 ```
 
+The repository migrations are incremental; apply them in order rather than
+running only `001_initial_schema.sql`. The latest matching/safety migration is
+[`supabase/migrations/20261117000100_postgis_matching_safety.sql`](supabase/migrations/20261117000100_postgis_matching_safety.sql).
+It adds owner-scoped `match_feedback`, `safety_shares`, and `ride_positions`
+tables and the anonymous, token-scoped `get_shared_position` RPC. The
+`origin_geog` GiST index and generated coordinate column are already provided
+by the preceding PostGIS migrations; the new migration installs a trigger only
+for legacy schemas where that column is not generated.
+
+Before adding the PostGIS geography columns, migration
+[`supabase/migrations/20261116000200_add_ride_geography.sql`](supabase/migrations/20261116000200_add_ride_geography.sql)
+clears out-of-range coordinate pairs from legacy rides and reports the number
+of affected rows. It preserves the ride addresses and does not guess
+replacement coordinates; affected rides simply remain unavailable to spatial
+search until valid coordinates are supplied.
+
+The follow-up
+[`supabase/migrations/20261118000100_ensure_search_ride_candidates.sql`](supabase/migrations/20261118000100_ensure_search_ride_candidates.sql)
+ensures the authenticated `search_ride_candidates` RPC, its PostGIS geography
+column, and GiST index exist, then notifies PostgREST to reload its schema
+cache. Apply it with `supabase db push` (or run the migration in the SQL
+Editor) before retrying spatial search in the app.
+
+If the app still reports `PGRST202`, verify the deployed function and its
+authenticated-role grant in the Supabase SQL Editor:
+
+```sql
+SELECT
+    p.oid::regprocedure AS signature,
+    pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+    pg_catalog.has_function_privilege(
+        'authenticated', p.oid, 'EXECUTE'
+    ) AS executable_by_authenticated
+FROM pg_catalog.pg_proc AS p
+JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'search_ride_candidates';
+```
+
+The query should return one function with all eight named arguments and
+`executable_by_authenticated = true`. This RPC is intentionally not granted
+to `anon`; make sure the app request uses an authenticated Supabase session.
+
 ---
 
 ## 📊 Database Schema Overview

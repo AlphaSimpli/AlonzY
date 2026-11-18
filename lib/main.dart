@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'l10n/app_locale_controller.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'screens/home_page.dart';
 import 'screens/login_page.dart';
@@ -9,6 +10,7 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLocaleController.loadSavedLanguage();
   await dotenv.load();
 
   await Supabase.initialize(
@@ -26,14 +28,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Alonzy',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      locale: const Locale('fr'),
-      supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      home: const AuthGate(),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: AppLocaleController.current,
+      builder: (context, locale, _) => MaterialApp(
+        title: 'Alonzy',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        locale: locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: const AuthGate(),
+      ),
     );
   }
 }

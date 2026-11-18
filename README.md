@@ -213,10 +213,9 @@ the reusable GPS and Realtime service is
 
 Location sharing is explicit and can be stopped by the user. RLS permits access
 only to the driver and confirmed passengers while the ride status is
-`in_progress`; trusted-contact sharing is not enabled until the app has an
-explicit contact and consent model. See
-[`LIVE_SAFETY_TRACK.md`](LIVE_SAFETY_TRACK.md) for deployment, permissions,
-background behavior, and usage.
+`in_progress`. The separate external safety-contact link is opt-in and
+documented in [`LIVE_SAFETY_TRACK.md`](LIVE_SAFETY_TRACK.md), which covers
+deployment, permissions, background behavior, and retention.
 
 ## 💬 Real-Time Chat
 
@@ -256,6 +255,39 @@ Run tests with:
 ```bash
 flutter test
 ```
+
+### Matching benchmarks and model evaluation
+
+Run the real OSRM table benchmark with:
+
+```bash
+python3 scripts/benchmark_osrm.py
+```
+
+It measures matrix batching, HTTP, response parsing, and detour calculation
+for 10, 50, and 100 fixed Gatineau–Ottawa candidates, then writes
+`docs/benchmarks_osrm.json`. The timing excludes Supabase search and Flutter
+rendering; the public OSRM demo has no latency SLA. Set `OSRM_BASE_URL` to a
+dedicated routing server for repeatable performance measurements.
+
+The matching model's deterministic synthetic evaluation is:
+
+```bash
+python3 ml/train_matching_model.py
+```
+
+To evaluate labeled exports from `match_feedback` instead, provide CSV or JSON
+data containing `detour_min`, `time_gap_min`, `pref_score`, `price`,
+`rule_score`, and `accepted`:
+
+```bash
+python3 ml/train_matching_model.py \
+  --feedback-data path/to/match_feedback.csv \
+  --output path/to/model_metrics.json
+```
+
+Rows without an `accepted` label are excluded. Logistic regression and the
+rule-score baseline are measured on the same stratified test split.
 
 ## 🚢 Deployment
 
