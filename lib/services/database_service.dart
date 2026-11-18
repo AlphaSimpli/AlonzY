@@ -20,7 +20,12 @@ import '../models/ride.dart';
 /// protection) is enforced server-side by triggers from migration 002, so the
 /// client performs no manual seat arithmetic.
 class DatabaseService {
-  final supabase = Supabase.instance.client;
+  DatabaseService({SupabaseClient? client})
+    : supabase = client ?? Supabase.instance.client;
+
+  final SupabaseClient supabase;
+
+  static const int _spatialCandidateLimit = 100;
 
   // ============================================================================
   // PROFILES
@@ -186,30 +191,62 @@ class DatabaseService {
     }
   }
 
-  /// Searches available rides with the given filters, ordered by departure.
+  /// Searches available rides, ordered by departure.
+  ///
+  /// A selected origin and date enable the PostGIS pre-filter. Otherwise the
+  /// existing text search remains available. This does not compute road detours.
   Future<List<Ride>> searchRides({
     DateTime? afterDate,
     String? startLocation,
     String? endLocation,
     double? maxPrice,
     int? minSeats,
+    double? originLatitude,
+    double? originLongitude,
+    double radiusMeters = 10000,
   }) async {
-    final debugSearch = kDebugMode;
-    developer.log(
-      'searchRides params: origin=${startLocation ?? '<any>'}, '
-      'destination=${endLocation ?? '<any>'}, '
-      'afterDate=${afterDate?.toIso8601String() ?? '<none>'}, '
-      'maxPrice=${maxPrice ?? '<any>'}, minSeats=${minSeats ?? '<any>'}, '
-      'debug=$debugSearch',
-      name: 'DatabaseService.searchRides',
-    );
-    debugPrint(
-      'searchRides origin=${startLocation ?? '<any>'}, '
-      'destination=${endLocation ?? '<any>'}, '
-      'date=${afterDate?.toIso8601String() ?? '<none>'}',
-    );
-
     try {
+      if ((originLatitude == null) != (originLongitude == null)) {
+        throw ArgumentError('Both origin coordinates must be supplied.');
+      }
+      if (originLatitude != null &&
+          (!originLatitude.isFinite ||
+              originLatitude < -90 ||
+              originLatitude > 90 ||
+              !originLongitude!.isFinite ||
+              originLongitude < -180 ||
+              originLongitude > 180)) {
+        throw ArgumentError('Invalid origin coordinates.');
+      }
+      if (maxPrice != null && (!maxPrice.isFinite || maxPrice < 0)) {
+        throw ArgumentError('Invalid maximum price.');
+      }
+      if (minSeats != null && minSeats < 1) {
+        throw ArgumentError('At least one seat must be requested.');
+      }
+      if (!radiusMeters.isFinite ||
+          radiusMeters <= 0 ||
+          radiusMeters > 100000) {
+        throw ArgumentError(
+          'Radius must be greater than 0 and at most 100 km.',
+        );
+      }
+
+      final useSpatialSearch = originLatitude != null && afterDate != null;
+      debugPrint('searchRides mode: ${useSpatialSearch ? 'postgis' : 'text'}');
+
+      if (useSpatialSearch) {
+        return await _searchSpatialRides(
+          date: afterDate,
+          latitude: originLatitude,
+          longitude: originLongitude!,
+          radiusMeters: radiusMeters,
+          endLocation: endLocation,
+          maxPrice: maxPrice,
+          minSeats: minSeats ?? 1,
+        );
+      }
+
       var query = supabase.from('rides').select('''
             id,
             driver_id,
@@ -241,9 +278,8 @@ class DatabaseService {
             )
           ''');
 
-      if (!debugSearch) {
-        query = query.eq('status', 'available');
-      }
+      // Development and release builds must obey the same availability rules.
+      query = query.eq('status', 'available');
       query = query.gt('available_seats', 0);
 
       if (afterDate != null) {
@@ -252,19 +288,15 @@ class DatabaseService {
           afterDate.month,
           afterDate.day,
         );
-        final dayEnd = dayStart
-            .add(const Duration(days: 1))
-            .subtract(const Duration(microseconds: 1));
-        developer.log(
-          'date filter: ${dayStart.toIso8601String()}..${dayEnd.toIso8601String()}',
-          name: 'DatabaseService.searchRides',
-        );
-        debugPrint(
-          'searchRides date range: ${dayStart.toIso8601String()}..${dayEnd.toIso8601String()}',
+        // Calendar arithmetic also handles local days of 23 or 25 hours.
+        final dayEnd = DateTime(
+          afterDate.year,
+          afterDate.month,
+          afterDate.day + 1,
         );
         query = query
-            .gte('departure_time', dayStart.toIso8601String())
-            .lte('departure_time', dayEnd.toIso8601String());
+            .gte('departure_time', dayStart.toUtc().toIso8601String())
+            .lt('departure_time', dayEnd.toUtc().toIso8601String());
       }
       if (startLocation != null && startLocation.isNotEmpty) {
         final originTerm = _sanitizeSearchTerm(startLocation);
@@ -325,8 +357,80 @@ class DatabaseService {
         stackTrace: StackTrace.current,
       );
       debugPrint('Error searching rides: $e');
-      return [];
+      rethrow;
     }
+  }
+
+  Future<List<Ride>> _searchSpatialRides({
+    required DateTime date,
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+    required int minSeats,
+    String? endLocation,
+    double? maxPrice,
+  }) async {
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = DateTime(date.year, date.month, date.day + 1);
+    final response = await supabase
+        .rpc<List<Map<String, dynamic>>>(
+          'search_ride_candidates',
+          params: {
+            'p_origin_lat': latitude,
+            'p_origin_lng': longitude,
+            'p_departure_from': dayStart.toUtc().toIso8601String(),
+            'p_departure_until': dayEnd.toUtc().toIso8601String(),
+            'p_radius_m': radiusMeters,
+            'p_min_seats': minSeats,
+            'p_max_price': maxPrice,
+            // One extra row detects truncation before the destination filter.
+            'p_limit': _spatialCandidateLimit + 1,
+          },
+        )
+        .select('''
+          id, driver_id,
+          origin_city, origin_address, destination_city, destination_address,
+          origin_lat, origin_lng, destination_lat, destination_lng,
+          departure_time, available_seats, price_per_seat,
+          vehicle_type, vehicle_plate, vehicle_make, vehicle_model,
+          vehicle_color, vehicle_year, status, notes,
+          pets_allowed, luggage_policy, instant_booking,
+          profiles!driver_id(
+            id, first_name, last_name, rating, avatar_url, bio,
+            email_verified, phone_verified, govt_id_status, verified_rides
+          )
+        ''');
+
+    if (response.length > _spatialCandidateLimit) {
+      // The current RPC has no destination argument or pagination cursor.
+      // Never present a truncated shortlist as an exhaustive search result.
+      throw StateError(
+        'More than 100 nearby offers. Narrow the date, price or seat filters.',
+      );
+    }
+
+    final destinationTerm = endLocation == null
+        ? ''
+        : _sanitizeSearchTerm(endLocation).toLowerCase();
+    final rides = response
+        .map((row) => Ride.fromJson(row))
+        .where((ride) => ride.id.isNotEmpty)
+        .where(
+          (ride) =>
+              destinationTerm.isEmpty ||
+              ride.destinationCity.toLowerCase().contains(destinationTerm) ||
+              ride.destinationAddress.toLowerCase().contains(destinationTerm),
+        )
+        .toList();
+    // Keep the existing UI order. OSRM and hybrid ranking are separate work.
+    rides.sort((a, b) {
+      final byDeparture = a.departureTime.compareTo(b.departureTime);
+      return byDeparture != 0 ? byDeparture : a.id.compareTo(b.id);
+    });
+    debugPrint(
+      'searchRides postgis: ${response.length} candidates, ${rides.length} results',
+    );
+    return rides;
   }
 
   static String _sanitizeSearchTerm(String value) {
@@ -434,12 +538,15 @@ class DatabaseService {
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
-    final bookingId = await supabase.rpc('create_booking_request', params: {
-      'p_ride_id': rideId,
-      'p_seats_booked': seatsBooked,
-      'p_total_price': totalPrice,
-      'p_pickup_location': pickupLocation,
-    });
+    final bookingId = await supabase.rpc(
+      'create_booking_request',
+      params: {
+        'p_ride_id': rideId,
+        'p_seats_booked': seatsBooked,
+        'p_total_price': totalPrice,
+        'p_pickup_location': pickupLocation,
+      },
+    );
     return bookingId.toString();
   }
 

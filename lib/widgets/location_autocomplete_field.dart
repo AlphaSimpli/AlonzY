@@ -37,7 +37,7 @@ class LocationAutocompleteField extends StatefulWidget {
   final IconData icon;
   final String placeholder;
   final void Function(MapLocation location, String address, String? city)?
-      onSelected;
+  onSelected;
   final VoidCallback? onCleared;
   final TextInputAction textInputAction;
   final bool autofocus;
@@ -145,7 +145,9 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
             prefixIcon: Icon(widget.icon),
             suffixIcon: _committed
                 ? IconButton(
-                    tooltip: 'Clear',
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).deleteButtonTooltip,
                     icon: const Icon(Icons.close),
                     onPressed: _clear,
                   )

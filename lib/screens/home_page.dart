@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'chat_list_page.dart';
 import 'my_bookings_page.dart';
@@ -18,7 +19,7 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
   late final List<Widget> _pages = [
-    _HomeTab(onNavigateToTab: _onTabSelected),
+    HomeTab(onNavigateToTab: _onTabSelected),
     const SearchRidesPage(),
     const PostRidePage(),
     const MyBookingsPage(),
@@ -36,7 +37,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       // IndexedStack keeps each tab's state alive when switching tabs.
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: _FloatingNavigationBar(
+      bottomNavigationBar: HomeNavigationBar(
         currentIndex: _currentIndex,
         onDestinationSelected: _onTabSelected,
       ),
@@ -44,8 +45,10 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _FloatingNavigationBar extends StatelessWidget {
-  const _FloatingNavigationBar({
+/// Shared home navigation, also testable without starting data-backed pages.
+class HomeNavigationBar extends StatelessWidget {
+  const HomeNavigationBar({
+    super.key,
     required this.currentIndex,
     required this.onDestinationSelected,
   });
@@ -53,25 +56,42 @@ class _FloatingNavigationBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
 
-  static const destinations = [
-    (icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
-    (icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Search'),
-    (icon: Icons.add_circle_outline, activeIcon: Icons.add_circle, label: 'Post'),
-    (
-      icon: Icons.receipt_long_outlined,
-      activeIcon: Icons.receipt_long,
-      label: 'Bookings',
-    ),
-    (
-      icon: Icons.chat_bubble_outline,
-      activeIcon: Icons.chat_bubble,
-      label: 'Chat',
-    ),
-    (icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    final destinations = [
+      (
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home,
+        label: strings.navHome,
+      ),
+      (
+        icon: Icons.search_outlined,
+        activeIcon: Icons.search,
+        label: strings.navSearch,
+      ),
+      (
+        icon: Icons.add_circle_outline,
+        activeIcon: Icons.add_circle,
+        label: strings.navPost,
+      ),
+      (
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        label: strings.navBookings,
+      ),
+      (
+        icon: Icons.chat_bubble_outline,
+        activeIcon: Icons.chat_bubble,
+        label: strings.navChat,
+      ),
+      (
+        icon: Icons.person_outline,
+        activeIcon: Icons.person,
+        label: strings.navProfile,
+      ),
+    ];
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       padding: const EdgeInsets.all(6),
@@ -93,6 +113,7 @@ class _FloatingNavigationBar extends StatelessWidget {
             Expanded(
               child: _FloatingNavigationDestination(
                 destination: destinations[index],
+                compactLabel: index == 3 ? strings.navBookingsShort : null,
                 isSelected: index == currentIndex,
                 onTap: () => onDestinationSelected(index),
               ),
@@ -106,11 +127,13 @@ class _FloatingNavigationBar extends StatelessWidget {
 class _FloatingNavigationDestination extends StatelessWidget {
   const _FloatingNavigationDestination({
     required this.destination,
+    this.compactLabel,
     required this.isSelected,
     required this.onTap,
   });
 
   final ({IconData icon, IconData activeIcon, String label}) destination;
+  final String? compactLabel;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -122,45 +145,51 @@ class _FloatingNavigationDestination extends StatelessWidget {
       button: true,
       selected: isSelected,
       label: destination.label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary.withValues(alpha: 0.12)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isSelected ? destination.activeIcon : destination.icon,
-                  color: foregroundColor,
-                  size: 20,
-                ),
-                const SizedBox(height: 2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    destination.label,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: foregroundColor,
-                      fontSize: 10.5,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: Tooltip(
+        message: destination.label,
+        excludeFromSemantics: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(30),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isSelected ? destination.activeIcon : destination.icon,
+                    color: foregroundColor,
+                    size: 20,
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      compactLabel ?? destination.label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: foregroundColor,
+                        fontSize: 10.5,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -169,13 +198,15 @@ class _FloatingNavigationDestination extends StatelessWidget {
   }
 }
 
-class _HomeTab extends StatelessWidget {
-  const _HomeTab({required this.onNavigateToTab});
+/// Home content separated from data access so both locales can be tested.
+class HomeTab extends StatelessWidget {
+  const HomeTab({super.key, required this.onNavigateToTab});
 
   final ValueChanged<int> onNavigateToTab;
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
@@ -185,18 +216,18 @@ class _HomeTab extends StatelessWidget {
           _HeroCard(
             icon: Icons.directions_car,
             colors: const [Color(0xFF10B981), Color(0xFF059669)],
-            title: 'Drive & earn',
-            subtitle: 'Post a ride and fill your empty seats.',
-            ctaLabel: 'Post a ride',
+            title: strings.homeDriveTitle,
+            subtitle: strings.homeDriveSubtitle,
+            ctaLabel: strings.homePostRide,
             onCta: () => onNavigateToTab(2),
           ),
           const SizedBox(height: 16),
           _HeroCard(
             icon: Icons.person_search,
             colors: const [AppColors.primary, AppColors.primaryDark],
-            title: 'Find a ride',
-            subtitle: 'Search available rides near you and book instantly.',
-            ctaLabel: 'Search rides',
+            title: strings.homeFindTitle,
+            subtitle: strings.homeFindSubtitle,
+            ctaLabel: strings.homeSearchRides,
             onCta: () => onNavigateToTab(1),
           ),
         ],
@@ -301,16 +332,20 @@ class _HeroCard extends StatelessWidget {
               onTap: onCta,
               borderRadius: BorderRadius.circular(12),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      ctaLabel,
-                      style: TextStyle(
-                        color: colors.last,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        ctaLabel,
+                        style: TextStyle(
+                          color: colors.last,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),

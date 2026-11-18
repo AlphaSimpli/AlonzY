@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/auth_error_localization.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/auth_layout.dart';
@@ -30,9 +32,7 @@ class _SignupPageState extends State<SignupPage> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.length < 6) {
-      _showMessage(
-        'Enter a valid email and a password of at least 6 characters',
-      );
+      _showMessage(AppLocalizations.of(context).signupValidation);
       return;
     }
 
@@ -51,17 +51,18 @@ class _SignupPageState extends State<SignupPage> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Account created. Check your email to verify before signing in.',
-            ),
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).accountCreated),
+            duration: const Duration(seconds: 4),
           ),
         );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      _showMessage('$e'.replaceFirst('Exception: ', ''));
+      final strings = AppLocalizations.of(context);
+      _showMessage(
+        localizedAuthError(e, strings, fallback: strings.authSignupFailed),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -84,13 +85,14 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return AuthLayout(
-      title: 'Create your account',
-      subtitle: 'It takes less than a minute to get started.',
-      footer: const Center(
+      title: strings.signupTitle,
+      subtitle: strings.signupSubtitle,
+      footer: Center(
         child: Text(
-          'By continuing you agree to our terms and privacy policy.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          strings.signupTermsNotice,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
           textAlign: TextAlign.center,
         ),
       ),
@@ -103,9 +105,9 @@ class _SignupPageState extends State<SignupPage> {
                 enabled: !_loading,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'First name',
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  labelText: strings.firstNameLabel,
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
             ),
@@ -116,9 +118,7 @@ class _SignupPageState extends State<SignupPage> {
                 enabled: !_loading,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Last name',
-                ),
+                decoration: InputDecoration(labelText: strings.lastNameLabel),
               ),
             ),
           ],
@@ -132,9 +132,9 @@ class _SignupPageState extends State<SignupPage> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
           ],
-          decoration: const InputDecoration(
-            labelText: 'Phone (optional)',
-            prefixIcon: Icon(Icons.phone_outlined),
+          decoration: InputDecoration(
+            labelText: strings.optionalPhoneLabel,
+            prefixIcon: const Icon(Icons.phone_outlined),
           ),
         ),
         const SizedBox(height: 14),
@@ -144,9 +144,9 @@ class _SignupPageState extends State<SignupPage> {
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.alternate_email),
+          decoration: InputDecoration(
+            labelText: strings.emailLabel,
+            prefixIcon: const Icon(Icons.alternate_email),
           ),
         ),
         const SizedBox(height: 14),
@@ -156,10 +156,13 @@ class _SignupPageState extends State<SignupPage> {
           obscureText: _obscurePassword,
           onSubmitted: (_) => _signUp(),
           decoration: InputDecoration(
-            labelText: 'Password',
-            helperText: 'At least 6 characters',
+            labelText: strings.passwordLabel,
+            helperText: strings.passwordLengthHint,
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
+              tooltip: _obscurePassword
+                  ? strings.showPassword
+                  : strings.hidePassword,
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
               icon: Icon(
@@ -180,7 +183,7 @@ class _SignupPageState extends State<SignupPage> {
                     color: Colors.white,
                   ),
                 )
-              : const Text('Create account'),
+              : Text(strings.createAccount),
         ),
       ],
     );
