@@ -49,14 +49,28 @@ native share sheet, and inserts GPS fixes every 12 seconds while the app is in
 the foreground. Stop sharing in **My Bookings** to revoke the token. Location
 collection is paused when the app leaves the foreground.
 
-Configure `SAFETY_TRACKER_URL` in the ignored local `.env` to the deployed
-HTTPS address of `web_tracker/track.html`. Before deployment, inject the
-Supabase URL and public anon/publishable key into `window.ALONZY_CONFIG` before
-the tracker script runs, or populate the `supabase-url` and
-`supabase-anon-key` meta tags in the HTML. These are public client settings;
-never use a `service_role` key. Do not commit project-specific values. The
-page polls the RPC every 12 seconds, reports an invalid or expired link when
-the RPC has no active position, and does not create an authenticated session.
+The `.github/workflows/deploy-tracker.yml` workflow copies `web_tracker/` to
+the root of the GitHub Pages artifact and injects the public Supabase settings
+into the tracker's meta tags. In the repository's **Settings → Secrets and
+variables → Actions → Variables**, add:
+
+- `SUPABASE_URL`: the project's public URL, for example
+  `https://<project-ref>.supabase.co`.
+- `SUPABASE_ANON_KEY`: the project's public anon/publishable key.
+
+The workflow also accepts those names as Actions secrets, but repository
+variables are appropriate because both values are intended to be public in
+the deployed page. Never use a `service_role` key. In **Settings → Pages**,
+set the build and deployment source to **GitHub Actions**. A push to `main` or
+a manual workflow run deploys `web_tracker/` contents to the Pages site root,
+making the tracker available at
+`https://alphasimpli.github.io/AlonzY/track.html`.
+
+Set `SAFETY_TRACKER_URL` in the ignored local `.env` to that exact tracker URL;
+the app adds the share token as a `token` query parameter. Do not commit
+project-specific values. The page polls the RPC every 12 seconds, reports an
+invalid or expired link when the RPC has no active position, and does not
+create an authenticated session.
 
 ## App usage
 
@@ -83,7 +97,7 @@ Supabase configuration uses these `.env` keys:
 ```text
 SUPABASE_URL=...
 SUPABASE_ANON_KEY=...
-SAFETY_TRACKER_URL=https://your-domain.example/web_tracker/track.html
+SAFETY_TRACKER_URL=https://alphasimpli.github.io/AlonzY/track.html
 ```
 
 No separate Geolocator or MapLibre API key is required. Never ship a Supabase
