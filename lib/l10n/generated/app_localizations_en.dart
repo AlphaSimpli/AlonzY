@@ -1356,4 +1356,53 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get safetyRideNotActive =>
       'Tracking is available while the ride is in progress.';
+
+  @override
+  String get safetyTrackingTitle => 'Safety tracking and sharing';
+
+  @override
+  String get safetyTrackingStart => 'Safety tracking & sharing';
+
+  @override
+  String safetyTrackingParticipants(int count) {
+    return '$count participant(s) on the map';
+  }
+
+  @override
+  String get safetyTrackingVisibleBy =>
+      'Your position is visible to ride participants and anyone with your tracking link (expires in 3 hours).';
+
+  @override
+  String get safetyTrackingNotSharing => 'Your position is not being shared.';
+
+  @override
+  String get safetyTrackingSharing => 'Your position is being shared live.';
+
+  @override
+  String get safetyTrackingCopyLink => 'Copy link';
+
+  @override
+  String get safetyTrackingSendLink => 'Send to a contact';
+
+  @override
+  String get safetyTrackingLinkCopied => 'Tracking link copied.';
+
+  @override
+  String get safetyTrackingRecenter => 'Recenter on my position';
+
+  @override
+  String get safetyTrackingStartLabel => 'Start';
+
+  @override
+  String get safetyTrackingEndLabel => 'Destination';
+
+  @override
+  String get safetyTrackingMyPosition => 'My position';
+
+  @override
+  String get safetyTrackingParticipant => 'Participant';
+
+  @override
+  String get safetyTrackingLocationUnavailable =>
+      'Could not get your location. Check location permissions.';
 }

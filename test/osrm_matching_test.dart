@@ -20,10 +20,17 @@ Map<String, dynamic> response({
   Object? distance = 10000,
   Object? duration = 900,
   Object? snap = 5,
+  Object? geometry = const {
+    'type': 'LineString',
+    'coordinates': [
+      [-75.69, 45.42],
+      [-75.7, 45.48],
+    ],
+  },
 }) => {
   'code': 'Ok',
   'routes': [
-    {'distance': distance, 'duration': duration},
+    {'distance': distance, 'duration': duration, 'geometry': geometry},
   ],
   'waypoints': List.generate(points, (_) => {'distance': snap}),
 };
@@ -142,6 +149,40 @@ void main() {
       expect(result.durationSeconds, 900);
     },
   );
+
+  test('requests and parses full GeoJSON road geometry', () async {
+    final result = await service.getRoute([a, b], includeGeometry: true);
+
+    expect(requests.single.url.queryParameters['overview'], 'full');
+    expect(requests.single.url.queryParameters['geometries'], 'geojson');
+    expect(
+      result.geometry
+          .map((point) => [point.latitude, point.longitude])
+          .toList(),
+      [
+        [45.42, -75.69],
+        [45.48, -75.7],
+      ],
+    );
+  });
+
+  test('rejects invalid full route geometry', () async {
+    reply = (_) async => jsonResponse(
+      response(
+        geometry: const {
+          'type': 'LineString',
+          'coordinates': [
+            [-75.69, 45.42],
+          ],
+        },
+      ),
+    );
+
+    await expectLater(
+      service.getRoute([a, b], includeGeometry: true),
+      failsWith('invalidResponse'),
+    );
+  });
 
   test('supports an endpoint with a path prefix', () async {
     service.close();

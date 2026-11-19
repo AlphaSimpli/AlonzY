@@ -43,11 +43,24 @@ schedule `SELECT public.purge_expired_ride_positions();` from a trusted
 scheduled job. The purge preserves positions while another valid share for the
 same ride remains active.
 
-`SafetyTrackingService` asks for explicit consent (including a Loi 25 notice),
-creates a cryptographically random token valid for three hours, opens the
-native share sheet, and inserts GPS fixes every 12 seconds while the app is in
-the foreground. Stop sharing in **My Bookings** to revoke the token. Location
-collection is paused when the app leaves the foreground.
+Apply `supabase/migrations/20261119000400_shared_route_coordinates.sql` to
+extend `get_shared_position` with the ride's start and destination coordinates.
+The anonymous RPC returns those endpoints only for a valid active share token.
+`web_tracker/track.html` then requests the road geometry from OSRM and draws it
+under the live position marker; if OSRM is unavailable, the page displays a
+direct endpoint line instead.
+
+`LiveSafetyTrackScreen` shows the ride route, endpoints, and the signed-in
+participant's current GPS location. It requests full route geometry from OSRM
+and falls back to a direct endpoint line if routing is unavailable. Starting
+**Suivi & partage de sécurité**
+asks for explicit consent (including a Loi 25 notice), starts participant-only
+live location sharing, and creates a cryptographically random public token
+valid for three hours. The screen displays the public link with actions to copy
+it or send it through the native share sheet. Stopping sharing revokes both
+the public token and the participant location stream. Public GPS fixes are
+sent every 12 seconds while the app is in the foreground; participant-only
+locations use the shorter interval documented below.
 
 The `.github/workflows/deploy-tracker.yml` workflow copies `web_tracker/` to
 the root of the GitHub Pages artifact and injects the public Supabase settings

@@ -422,5 +422,21 @@
   "safetySharingStarted": "Le partage de position est actif.",
   "safetySharingStopped": "Le partage de position est arrêté.",
   "safetyShareFailed": "Impossible de démarrer le partage de position. Vérifiez les autorisations et réessayez.",
-  "safetyRideNotActive": "Le suivi est disponible lorsque le trajet est en cours."
+  "safetyRideNotActive": "Le suivi est disponible lorsque le trajet est en cours.",
+  "safetyTrackingTitle": "Suivi et partage de sécurité",
+  "safetyTrackingStart": "Suivi & partage de sécurité",
+  "safetyTrackingParticipants": "{count} participant(s) sur la carte",
+  "@safetyTrackingParticipants": {"placeholders": {"count": {"type": "int"}}},
+  "safetyTrackingVisibleBy": "Votre position est visible par les participants du trajet et toute personne disposant de votre lien de suivi (expire dans 3 h).",
+  "safetyTrackingNotSharing": "Votre position n’est pas partagée.",
+  "safetyTrackingSharing": "Votre position est partagée en direct.",
+  "safetyTrackingCopyLink": "Copier le lien",
+  "safetyTrackingSendLink": "Envoyer à un proche",
+  "safetyTrackingLinkCopied": "Lien de suivi copié.",
+  "safetyTrackingRecenter": "Recentrer sur ma position",
+  "safetyTrackingStartLabel": "Départ",
+  "safetyTrackingEndLabel": "Arrivée",
+  "safetyTrackingMyPosition": "Ma position",
+  "safetyTrackingParticipant": "Participant",
+  "safetyTrackingLocationUnavailable": "Impossible d’obtenir votre position. Vérifiez les autorisations de localisation."
 }

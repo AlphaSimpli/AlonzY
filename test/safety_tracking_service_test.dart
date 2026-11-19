@@ -10,6 +10,7 @@ class _FakeSafetyBackend implements SafetyTrackingBackend {
   @override
   Future<String> createShare({
     required String bookingId,
+    required String rideId,
     required String token,
     required DateTime consentGivenAt,
     required DateTime expiresAt,
@@ -17,7 +18,7 @@ class _FakeSafetyBackend implements SafetyTrackingBackend {
     this.token = token;
     this.consentGivenAt = consentGivenAt;
     this.expiresAt = expiresAt;
-    events.add('create:$bookingId');
+    events.add('create:$bookingId:$rideId');
     return 'share-id';
   }
 
@@ -37,6 +38,85 @@ class _FakeSafetyBackend implements SafetyTrackingBackend {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('allows shares for confirmed bookings before and during a ride', () {
+    expect(
+      canShareSafetyForRide(
+        bookingStatus: 'confirmed',
+        rideStatus: 'available',
+      ),
+      isTrue,
+    );
+    expect(
+      canShareSafetyForRide(
+        bookingStatus: 'in_progress',
+        rideStatus: 'in_progress',
+      ),
+      isTrue,
+    );
+    expect(
+      canShareSafetyForRide(bookingStatus: 'pending', rideStatus: 'available'),
+      isFalse,
+    );
+    expect(
+      canShareSafetyForRide(
+        bookingStatus: 'confirmed',
+        rideStatus: 'completed',
+      ),
+      isFalse,
+    );
+  });
+
+  test(
+    'uses the deployed tracker URL when no override is configured',
+    () async {
+      final backend = _FakeSafetyBackend();
+      final sharedUrls = <Uri>[];
+      final service = SafetyTrackingService(
+        backend: backend,
+        positionProvider: () async => const SafetyCoordinate(45, -73),
+        shareHandler: (url) async => sharedUrls.add(url),
+      );
+
+      await service.startSharing(
+        bookingId: 'booking-1',
+        rideId: 'ride-1',
+        consentGiven: true,
+      );
+
+      expect(
+        sharedUrls.single.origin + sharedUrls.single.path,
+        defaultSafetyTrackerUrl,
+      );
+      await service.stopSharing();
+    },
+  );
+
+  test(
+    'returns a public link without opening the system share sheet',
+    () async {
+      final backend = _FakeSafetyBackend();
+      var openedShareSheet = false;
+      final service = SafetyTrackingService(
+        backend: backend,
+        trackerBaseUrl: 'https://example.test/track.html',
+        positionProvider: () async => const SafetyCoordinate(45, -73),
+        shareHandler: (_) async => openedShareSheet = true,
+      );
+
+      final link = await service.startSharing(
+        bookingId: 'booking-1',
+        rideId: 'ride-1',
+        consentGiven: true,
+        invokeShareSheet: false,
+      );
+
+      expect(link.origin + link.path, 'https://example.test/track.html');
+      expect(link.queryParameters['token'], backend.token);
+      expect(openedShareSheet, isFalse);
+      await service.stopSharing();
+    },
+  );
 
   test('requires explicit consent before creating a share token', () async {
     final backend = _FakeSafetyBackend();

@@ -8,6 +8,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+const defaultSafetyTrackerUrl =
+    'https://alphasimpli.github.io/AlonzY/track.html';
+
+bool canShareSafetyForRide({
+  required String bookingStatus,
+  required String rideStatus,
+}) =>
+    const {'confirmed', 'in_progress'}.contains(bookingStatus.toLowerCase()) &&
+    const {'available', 'in_progress'}.contains(rideStatus.toLowerCase());
+
 class SafetyCoordinate {
   const SafetyCoordinate(this.latitude, this.longitude);
   final double latitude;
@@ -17,6 +27,7 @@ class SafetyCoordinate {
 abstract interface class SafetyTrackingBackend {
   Future<String> createShare({
     required String bookingId,
+    required String rideId,
     required String token,
     required DateTime consentGivenAt,
     required DateTime expiresAt,
@@ -48,7 +59,9 @@ class SafetyTrackingService with WidgetsBindingObserver {
        _shareHandler = shareHandler ?? _share,
        _trackerBaseUrl =
            trackerBaseUrl ??
-           (dotenv.isInitialized ? dotenv.env['SAFETY_TRACKER_URL'] ?? '' : ''),
+           (dotenv.isInitialized
+               ? dotenv.env['SAFETY_TRACKER_URL'] ?? defaultSafetyTrackerUrl
+               : defaultSafetyTrackerUrl),
        _clock = clock ?? DateTime.now,
        _random = random ?? Random.secure() {
     if (interval <= Duration.zero) {
@@ -72,10 +85,11 @@ class SafetyTrackingService with WidgetsBindingObserver {
 
   bool get isSharing => _shareId != null;
 
-  Future<void> startSharing({
+  Future<Uri> startSharing({
     required String bookingId,
     required String rideId,
     required bool consentGiven,
+    bool invokeShareSheet = true,
     void Function(Object error, StackTrace stackTrace)? onError,
   }) async {
     if (!consentGiven) {
@@ -101,6 +115,7 @@ class SafetyTrackingService with WidgetsBindingObserver {
     final expiresAt = consentGivenAt.add(const Duration(hours: 3));
     final shareId = await _backend.createShare(
       bookingId: bookingId,
+      rideId: rideId,
       token: token,
       consentGivenAt: consentGivenAt,
       expiresAt: expiresAt,
@@ -115,7 +130,8 @@ class SafetyTrackingService with WidgetsBindingObserver {
       final shareUrl = trackerBase.replace(
         queryParameters: {...trackerBase.queryParameters, 'token': token},
       );
-      await _shareHandler(shareUrl);
+      if (invokeShareSheet) await _shareHandler(shareUrl);
+      return shareUrl;
     } catch (error, stackTrace) {
       _timer?.cancel();
       _timer = null;
@@ -232,14 +248,21 @@ class _SupabaseSafetyTrackingBackend implements SafetyTrackingBackend {
   @override
   Future<String> createShare({
     required String bookingId,
+    required String rideId,
     required String token,
     required DateTime consentGivenAt,
     required DateTime expiresAt,
   }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Sign in before creating a safety share.');
+    }
     final row = await _client
         .from('safety_shares')
         .insert({
           'booking_id': bookingId,
+          'ride_id': rideId,
+          'shared_user_id': userId,
           'token': token,
           'is_active': true,
           'consent_given_at': consentGivenAt.toIso8601String(),

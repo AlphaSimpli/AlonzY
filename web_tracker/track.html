@@ -36,8 +36,13 @@
       const token = new URLSearchParams(window.location.search).get('token');
       const status = document.getElementById('status');
       let marker;
+      let startMarker;
+      let endMarker;
       let mapReady = false;
       let latestPosition;
+      let latestRoute;
+      let routeFitted = false;
+      let routeAttempted = false;
       const map = new maplibregl.Map({
         container: 'map',
         style: {
@@ -58,6 +63,7 @@
       map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
       map.on('load', () => {
         mapReady = true;
+        if (latestRoute) renderRoute(latestRoute);
         if (latestPosition) renderPosition(latestPosition);
       });
 
@@ -72,12 +78,114 @@
           marker = new maplibregl.Marker({ color: '#10B981' })
             .setLngLat(point)
             .addTo(map);
-          map.flyTo({ center: point, zoom: 14 });
+          if (!routeFitted) map.flyTo({ center: point, zoom: 14 });
         } else {
           marker.setLngLat(point);
         }
         const timestamp = new Date(position.recorded_at).toLocaleTimeString();
         showStatus(`Position mise à jour à ${timestamp}`);
+      }
+
+      function renderRoute(route) {
+        if (!mapReady) return;
+        latestRoute = route;
+        if (!map.getSource('ride-route')) {
+          map.addSource('ride-route', { type: 'geojson', data: route });
+          map.addLayer({
+            id: 'ride-route-outline',
+            type: 'line',
+            source: 'ride-route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': '#1E3A8A',
+              'line-width': 7,
+              'line-opacity': 0.45
+            }
+          });
+          map.addLayer({
+            id: 'ride-route-main',
+            type: 'line',
+            source: 'ride-route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#3B82F6', 'line-width': 4.5 }
+          });
+        } else {
+          map.getSource('ride-route').setData(route);
+        }
+
+        const coordinates = route.geometry.coordinates;
+        if (coordinates.length >= 2 && !routeFitted) {
+          const bounds = coordinates.reduce(
+            (result, coordinate) => result.extend(coordinate),
+            new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
+          );
+          map.fitBounds(bounds, {
+            padding: { top: 80, right: 56, bottom: 120, left: 56 },
+            duration: 0
+          });
+          startMarker = new maplibregl.Marker({ color: '#10B981' })
+            .setLngLat(coordinates[0])
+            .setPopup(new maplibregl.Popup().setText('Départ'))
+            .addTo(map);
+          endMarker = new maplibregl.Marker({ color: '#EF4444' })
+            .setLngLat(coordinates[coordinates.length - 1])
+            .setPopup(new maplibregl.Popup().setText('Arrivée'))
+            .addTo(map);
+          routeFitted = true;
+        }
+      }
+
+      async function loadRoadRoute(position) {
+        const rawEndpoints = [
+          position.origin_lng,
+          position.origin_lat,
+          position.destination_lng,
+          position.destination_lat
+        ];
+        if (!rawEndpoints.every(
+              (coordinate) =>
+                typeof coordinate === 'number' && Number.isFinite(coordinate)
+            )) {
+          return;
+        }
+        const endpoints = [
+          [position.origin_lng, position.origin_lat],
+          [position.destination_lng, position.destination_lat]
+        ];
+        if (
+            Math.abs(endpoints[0][0]) > 180 ||
+            Math.abs(endpoints[0][1]) > 90 ||
+            Math.abs(endpoints[1][0]) > 180 ||
+            Math.abs(endpoints[1][1]) > 90) {
+          return;
+        }
+        try {
+          const routeUrl =
+            'https://router.project-osrm.org/route/v1/driving/' +
+            endpoints.map((point) => point.join(',')).join(';') +
+            '?overview=full&geometries=geojson&steps=false';
+          const response = await fetch(routeUrl);
+          if (!response.ok) throw new Error(`OSRM HTTP ${response.status}`);
+          const payload = await response.json();
+          const coordinates = payload?.routes?.[0]?.geometry?.coordinates;
+          if (payload?.code !== 'Ok' ||
+              !Array.isArray(coordinates) ||
+              coordinates.length < 2) {
+            throw new Error('OSRM route geometry is unavailable');
+          }
+          renderRoute({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates },
+            properties: {}
+          });
+        } catch (error) {
+          console.warn('Could not load public tracker road route:', error);
+          renderRoute({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: endpoints },
+            properties: {}
+          });
+        }
       }
 
       async function refreshPosition(client) {
@@ -98,6 +206,10 @@
             lng: Number(position.lng),
             recorded_at: position.recorded_at
           };
+          if (!routeAttempted) {
+            routeAttempted = true;
+            await loadRoadRoute(position);
+          }
           renderPosition(latestPosition);
         } catch (error) {
           console.error('Safety tracker refresh failed:', error);

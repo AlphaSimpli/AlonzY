@@ -422,5 +422,21 @@
   "safetySharingStarted": "Location sharing is active.",
   "safetySharingStopped": "Location sharing has stopped.",
   "safetyShareFailed": "Could not start location sharing. Check permissions and try again.",
-  "safetyRideNotActive": "Tracking is available while the ride is in progress."
+  "safetyRideNotActive": "Tracking is available while the ride is in progress.",
+  "safetyTrackingTitle": "Safety tracking and sharing",
+  "safetyTrackingStart": "Safety tracking & sharing",
+  "safetyTrackingParticipants": "{count} participant(s) on the map",
+  "@safetyTrackingParticipants": {"placeholders": {"count": {"type": "int"}}},
+  "safetyTrackingVisibleBy": "Your position is visible to ride participants and anyone with your tracking link (expires in 3 hours).",
+  "safetyTrackingNotSharing": "Your position is not being shared.",
+  "safetyTrackingSharing": "Your position is being shared live.",
+  "safetyTrackingCopyLink": "Copy link",
+  "safetyTrackingSendLink": "Send to a contact",
+  "safetyTrackingLinkCopied": "Tracking link copied.",
+  "safetyTrackingRecenter": "Recenter on my position",
+  "safetyTrackingStartLabel": "Start",
+  "safetyTrackingEndLabel": "Destination",
+  "safetyTrackingMyPosition": "My position",
+  "safetyTrackingParticipant": "Participant",
+  "safetyTrackingLocationUnavailable": "Could not get your location. Check location permissions."
 }

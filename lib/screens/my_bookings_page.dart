@@ -8,7 +8,7 @@ import '../models/booking.dart';
 import '../models/conversation.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
-import '../services/safety_tracking_service.dart';
+import '../services/safety_tracking_service.dart' show canShareSafetyForRide;
 import 'chat_page.dart';
 import 'live_safety_track_screen.dart';
 
@@ -32,7 +32,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   bool _loading = true;
   int _tab = 0;
   StreamSubscription<List<Booking>>? _bookingsSub;
-  SafetyTrackingService? _safetyTrackingService;
 
   @override
   void initState() {
@@ -51,17 +50,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   @override
   void dispose() {
     _bookingsSub?.cancel();
-    final service = _safetyTrackingService;
-    if (service?.isSharing ?? false) unawaited(_stopSafetyOnDispose(service!));
     super.dispose();
-  }
-
-  Future<void> _stopSafetyOnDispose(SafetyTrackingService service) async {
-    try {
-      await service.stopSharing();
-    } catch (error) {
-      debugPrint('Could not revoke safety share during disposal: $error');
-    }
   }
 
   Future<void> _loadBookings() async {
@@ -281,86 +270,20 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            LiveSafetyTrackScreen(rideId: ride.id, initialCenter: ride.start),
+        builder: (_) => LiveSafetyTrackScreen(
+          bookingId: booking.id,
+          rideId: ride.id,
+          start: ride.start,
+          end: ride.end,
+          startLabel: ride.originAddress.isEmpty
+              ? AppLocalizations.of(context).safetyTrackingStartLabel
+              : ride.originAddress,
+          endLabel: ride.destinationAddress.isEmpty
+              ? AppLocalizations.of(context).safetyTrackingEndLabel
+              : ride.destinationAddress,
+        ),
       ),
     );
-  }
-
-  Future<void> _shareSafetyTracking(Booking booking) async {
-    final strings = AppLocalizations.of(context);
-    final service = _safetyTrackingService ??= SafetyTrackingService();
-    if (service.isSharing) {
-      try {
-        await service.stopSharing();
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(strings.safetySharingStopped)));
-        }
-      } catch (error) {
-        debugPrint('Could not stop safety sharing: $error');
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(strings.safetyShareFailed)));
-        }
-      }
-      return;
-    }
-
-    final consent = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(strings.safetyConsentTitle),
-        content: Text(strings.safetyConsentMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(strings.safetyCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(strings.safetyStartSharing),
-          ),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (consent != true) return;
-    final ride = booking.ride;
-    if (ride == null || ride.status != 'in_progress') {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(strings.safetyRideNotActive)));
-      return;
-    }
-    try {
-      await service.startSharing(
-        bookingId: booking.id,
-        rideId: booking.rideId,
-        consentGiven: consent == true,
-        onError: (error, stackTrace) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(strings.safetyShareFailed)));
-        },
-      );
-      if (mounted) {
-        setState(() {});
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(strings.safetySharingStarted)));
-      }
-    } catch (error) {
-      debugPrint('Could not start safety sharing: $error');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(strings.safetyShareFailed)));
-      }
-    }
   }
 
   @override
@@ -430,16 +353,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       ? () => _openChat(visible[index])
                       : null,
                   onTrack:
-                      visible[index].status == 'confirmed' &&
-                          visible[index].ride?.status == 'in_progress'
+                      visible[index].ride != null &&
+                          canShareSafetyForRide(
+                            bookingStatus: visible[index].status,
+                            rideStatus: visible[index].ride!.status,
+                          )
                       ? () => _openLiveSafetyTrack(visible[index])
                       : null,
-                  onSafetyShare:
-                      visible[index].status == 'confirmed' &&
-                          visible[index].ride?.status == 'in_progress'
-                      ? () => _shareSafetyTracking(visible[index])
-                      : null,
-                  isSharing: _safetyTrackingService?.isSharing ?? false,
                 ),
               ),
             ),
@@ -493,8 +413,6 @@ class _BookingCard extends StatelessWidget {
     this.onRate,
     this.onMessage,
     this.onTrack,
-    this.onSafetyShare,
-    this.isSharing = false,
   });
 
   final Booking booking;
@@ -502,8 +420,6 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onRate;
   final VoidCallback? onMessage;
   final VoidCallback? onTrack;
-  final VoidCallback? onSafetyShare;
-  final bool isSharing;
 
   @override
   Widget build(BuildContext context) {
@@ -645,76 +561,40 @@ class _BookingCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onTrack,
                   icon: const Icon(Icons.my_location),
-                  label: Text(strings.myBookingsLiveTrack),
+                  label: Text(strings.safetyTrackingStart),
                 ),
               ),
             ],
-            if (onSafetyShare != null) ...[
-              const SizedBox(height: 8),
+            if (onMessage != null) ...[
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: onSafetyShare,
-                  icon: Icon(
-                    isSharing
-                        ? Icons.stop_circle_outlined
-                        : Icons.share_location,
-                  ),
-                  label: Text(
-                    isSharing
-                        ? AppLocalizations.of(context).safetyStopSharing
-                        : AppLocalizations.of(context).safetyShareButton,
-                  ),
+                  onPressed: onMessage,
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: Text(strings.myBookingsMessage),
                 ),
               ),
             ],
             if (onRate != null) ...[
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  if (onMessage != null) ...[
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onMessage,
-                        icon: const Icon(Icons.chat_bubble_outline),
-                        label: Text(strings.myBookingsMessage),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: onRate,
-                      icon: const Icon(Icons.star_outline),
-                      label: Text(strings.myBookingsRateAction),
-                    ),
-                  ),
-                ],
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onRate,
+                  icon: const Icon(Icons.star_outline),
+                  label: Text(strings.myBookingsRateAction),
+                ),
               ),
             ] else if (onCancel != null) ...[
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  if (onMessage != null) ...[
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onMessage,
-                        icon: const Icon(Icons.chat_bubble_outline),
-                        label: Text(strings.myBookingsMessage),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    flex: 2,
-                    child: OutlinedButton.icon(
-                      onPressed: onCancel,
-                      icon: const Icon(Icons.close),
-                      label: Text(strings.myBookingsCancel),
-                    ),
-                  ),
-                ],
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onCancel,
+                  icon: const Icon(Icons.close),
+                  label: Text(strings.myBookingsCancel),
+                ),
               ),
             ],
           ],

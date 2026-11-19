@@ -1372,4 +1372,53 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get safetyRideNotActive =>
       'Le suivi est disponible lorsque le trajet est en cours.';
+
+  @override
+  String get safetyTrackingTitle => 'Suivi et partage de sécurité';
+
+  @override
+  String get safetyTrackingStart => 'Suivi & partage de sécurité';
+
+  @override
+  String safetyTrackingParticipants(int count) {
+    return '$count participant(s) sur la carte';
+  }
+
+  @override
+  String get safetyTrackingVisibleBy =>
+      'Votre position est visible par les participants du trajet et toute personne disposant de votre lien de suivi (expire dans 3 h).';
+
+  @override
+  String get safetyTrackingNotSharing => 'Votre position n’est pas partagée.';
+
+  @override
+  String get safetyTrackingSharing => 'Votre position est partagée en direct.';
+
+  @override
+  String get safetyTrackingCopyLink => 'Copier le lien';
+
+  @override
+  String get safetyTrackingSendLink => 'Envoyer à un proche';
+
+  @override
+  String get safetyTrackingLinkCopied => 'Lien de suivi copié.';
+
+  @override
+  String get safetyTrackingRecenter => 'Recentrer sur ma position';
+
+  @override
+  String get safetyTrackingStartLabel => 'Départ';
+
+  @override
+  String get safetyTrackingEndLabel => 'Arrivée';
+
+  @override
+  String get safetyTrackingMyPosition => 'Ma position';
+
+  @override
+  String get safetyTrackingParticipant => 'Participant';
+
+  @override
+  String get safetyTrackingLocationUnavailable =>
+      'Impossible d’obtenir votre position. Vérifiez les autorisations de localisation.';
 }

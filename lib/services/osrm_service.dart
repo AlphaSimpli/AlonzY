@@ -16,9 +16,11 @@ class OsrmRouteEstimate {
   const OsrmRouteEstimate({
     required this.distanceMeters,
     required this.durationSeconds,
+    this.geometry = const [],
   });
   final double distanceMeters;
   final double durationSeconds;
+  final List<OsrmCoordinate> geometry;
 }
 
 class OsrmDetourEstimate {
@@ -129,7 +131,10 @@ class OsrmService {
     return OsrmDetourEstimate(directRoute: direct, sharedRoute: shared);
   }
 
-  Future<OsrmRouteEstimate> getRoute(List<OsrmCoordinate> points) {
+  Future<OsrmRouteEstimate> getRoute(
+    List<OsrmCoordinate> points, {
+    bool includeGeometry = false,
+  }) {
     if (_closed) return Future.error(const OsrmException('closed'));
     try {
       _validatePoints(points);
@@ -143,10 +148,11 @@ class OsrmService {
     final uri = baseUri.replace(
       path: '$prefix/route/v1/driving/$coordinates',
       queryParameters: {
-        'overview': 'false',
+        'overview': includeGeometry ? 'full' : 'false',
         'steps': 'false',
         'alternatives': 'false',
         'continue_straight': 'false',
+        if (includeGeometry) 'geometries': 'geojson',
         'radiuses': List.filled(
           points.length,
           '$maxSnapDistanceMeters',
@@ -175,7 +181,11 @@ class OsrmService {
         if (_closed) throw const OsrmException('closed');
         _sinceLastStart.reset();
         _sinceLastStart.start();
-        final route = await _request(uri, count);
+        final route = await _request(
+          uri,
+          count,
+          includeGeometry: includeGeometry,
+        );
         if (_closed) throw const OsrmException('closed');
         if (maxCacheEntries > 0 && cacheTtl > Duration.zero) {
           // Bound memory and remove expired entries before keeping a response.
@@ -196,7 +206,11 @@ class OsrmService {
     return completer.future;
   }
 
-  Future<OsrmRouteEstimate> _request(Uri uri, int pointCount) async {
+  Future<OsrmRouteEstimate> _request(
+    Uri uri,
+    int pointCount, {
+    required bool includeGeometry,
+  }) async {
     late http.Response response;
     try {
       response = await _client
@@ -255,9 +269,38 @@ class OsrmService {
     if (!_validMetric(route['distance']) || !_validMetric(route['duration'])) {
       throw const OsrmException('invalidResponse');
     }
+    final geometry = <OsrmCoordinate>[];
+    if (includeGeometry) {
+      final rawGeometry = route['geometry'];
+      final coordinates = rawGeometry is Map ? rawGeometry['coordinates'] : null;
+      if (rawGeometry is! Map ||
+          rawGeometry['type'] != 'LineString' ||
+          coordinates is! List ||
+          coordinates.length < 2) {
+        throw const OsrmException('invalidResponse');
+      }
+      for (final coordinate in coordinates) {
+        if (coordinate is! List ||
+            coordinate.length < 2 ||
+            coordinate[0] is! num ||
+            coordinate[1] is! num) {
+          throw const OsrmException('invalidResponse');
+        }
+        final longitude = (coordinate[0] as num).toDouble();
+        final latitude = (coordinate[1] as num).toDouble();
+        if (!latitude.isFinite ||
+            !longitude.isFinite ||
+            latitude.abs() > 90 ||
+            longitude.abs() > 180) {
+          throw const OsrmException('invalidResponse');
+        }
+        geometry.add(OsrmCoordinate(latitude, longitude));
+      }
+    }
     return OsrmRouteEstimate(
       distanceMeters: (route['distance'] as num).toDouble(),
       durationSeconds: (route['duration'] as num).toDouble(),
+      geometry: List.unmodifiable(geometry),
     );
   }
 

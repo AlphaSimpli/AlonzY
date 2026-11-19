@@ -40,12 +40,18 @@ class MapMarkerData {
 
   /// Accent colour of the marker, as a hex string (e.g. `#10B981`).
   final String colorHex;
+  final double? circleRadius;
+  final String circleStrokeColor;
+  final double circleStrokeWidth;
 
   const MapMarkerData({
     required this.id,
     required this.location,
     this.label,
     this.colorHex = '#4F46E5',
+    this.circleRadius,
+    this.circleStrokeColor = '#FFFFFF',
+    this.circleStrokeWidth = 2,
   });
 }
 
@@ -56,12 +62,16 @@ class MapPolylineData {
   final String colorHex;
   final double width;
   final double opacity;
+  final String lineCap;
+  final String lineJoin;
 
   const MapPolylineData({
     required this.points,
     this.colorHex = '#4F46E5',
     this.width = 4,
     this.opacity = 0.85,
+    this.lineCap = 'round',
+    this.lineJoin = 'round',
   });
 }
 

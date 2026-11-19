@@ -10,6 +10,7 @@ import '../models/conversation.dart';
 import '../models/ride.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/safety_tracking_service.dart' show canShareSafetyForRide;
 import 'chat_page.dart';
 import 'live_safety_track_screen.dart';
 
@@ -87,17 +88,14 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
     _bookingsSub = _dbService.supabase
         .from('bookings')
         .stream(primaryKey: ['id'])
-        .listen(
-      (records) {
-        final changed = records.any(
-          (row) => rideIds.contains(row['ride_id']?.toString()),
-        );
-        if (changed && mounted) {
-          _loadRidesAndBookings();
-        }
-      },
-      onError: (Object e) => debugPrint('Booking stream error: $e'),
-    );
+        .listen((records) {
+          final changed = records.any(
+            (row) => rideIds.contains(row['ride_id']?.toString()),
+          );
+          if (changed && mounted) {
+            _loadRidesAndBookings();
+          }
+        }, onError: (Object e) => debugPrint('Booking stream error: $e'));
   }
 
   Future<void> _acceptBooking(String bookingId) async {
@@ -114,7 +112,9 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+          content: Text(
+            AppLocalizations.of(context).driverBookingsActionFailed,
+          ),
         ),
       );
     }
@@ -134,7 +134,9 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+          content: Text(
+            AppLocalizations.of(context).driverBookingsActionFailed,
+          ),
         ),
       );
     }
@@ -154,7 +156,9 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+          content: Text(
+            AppLocalizations.of(context).driverBookingsActionFailed,
+          ),
         ),
       );
     }
@@ -177,18 +181,28 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).driverBookingsActionFailed),
+          content: Text(
+            AppLocalizations.of(context).driverBookingsActionFailed,
+          ),
         ),
       );
     }
   }
 
-  Future<void> _openLiveSafetyTrack(Ride ride) {
+  Future<void> _openLiveSafetyTrack(Ride ride, Booking booking) {
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LiveSafetyTrackScreen(
+          bookingId: booking.id,
           rideId: ride.id,
-          initialCenter: ride.start,
+          start: ride.start,
+          end: ride.end,
+          startLabel: ride.originAddress.isEmpty
+              ? AppLocalizations.of(context).safetyTrackingStartLabel
+              : ride.originAddress,
+          endLabel: ride.destinationAddress.isEmpty
+              ? AppLocalizations.of(context).safetyTrackingEndLabel
+              : ride.destinationAddress,
         ),
       ),
     );
@@ -249,26 +263,41 @@ class _DriverBookingsPageState extends State<DriverBookingsPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _rides.isEmpty
-              ? _EmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _rides.length,
-                  itemBuilder: (context, index) => _RideBookingsCard(
-                    ride: _rides[index],
-                    bookings: _rideBookings[_rides[index].id] ?? const [],
-                    onAccept: (booking) => _acceptBooking(booking.id),
-                    onReject: (booking) => _rejectBooking(booking.id),
-                    onCancel: (booking) => _cancelBooking(booking.id),
-                    onMessage: (booking) => _openChat(booking),
-                    onTrack: _rides[index].status == 'in_progress'
-                        ? () => _openLiveSafetyTrack(_rides[index])
-                        : null,
-                    onComplete: _rides[index].status == 'available' ||
-                            _rides[index].status == 'in_progress'
-                        ? () => _markCompleted(_rides[index])
-                        : null,
-                  ),
-                ),
+          ? _EmptyState()
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: _rides.length,
+              itemBuilder: (context, index) {
+                final ride = _rides[index];
+                final bookings = _rideBookings[ride.id] ?? const <Booking>[];
+                final trackableBookings = bookings
+                    .where(
+                      (booking) => canShareSafetyForRide(
+                        bookingStatus: booking.status,
+                        rideStatus: ride.status,
+                      ),
+                    )
+                    .toList(growable: false);
+                final trackableBooking = trackableBookings.isEmpty
+                    ? null
+                    : trackableBookings.first;
+                return _RideBookingsCard(
+                  ride: ride,
+                  bookings: bookings,
+                  onAccept: (booking) => _acceptBooking(booking.id),
+                  onReject: (booking) => _rejectBooking(booking.id),
+                  onCancel: (booking) => _cancelBooking(booking.id),
+                  onMessage: (booking) => _openChat(booking),
+                  onTrack: trackableBooking == null
+                      ? null
+                      : () => _openLiveSafetyTrack(ride, trackableBooking),
+                  onComplete:
+                      ride.status == 'available' || ride.status == 'in_progress'
+                      ? () => _markCompleted(ride)
+                      : null,
+                );
+              },
+            ),
     );
   }
 }
@@ -391,7 +420,7 @@ class _RideBookingsCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onTrack,
                   icon: const Icon(Icons.my_location),
-                  label: Text(strings.driverBookingsLiveTrack),
+                  label: Text(strings.safetyTrackingStart),
                 ),
               ),
             ),
@@ -428,7 +457,6 @@ class _RideBookingsCard extends StatelessWidget {
       default:
         return Colors.grey[100]!;
     }
-
   }
 }
 
@@ -465,8 +493,7 @@ class _BookingTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      passenger?.displayName ??
-                          strings.driverBookingsPassenger,
+                      passenger?.displayName ?? strings.driverBookingsPassenger,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
@@ -498,17 +525,18 @@ class _BookingTile extends StatelessWidget {
           ),
           if (booking.status == 'pending' || booking.status == 'confirmed') ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onMessage,
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: Text(strings.driverBookingsMessage),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (booking.status == 'pending') ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onMessage,
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: Text(strings.driverBookingsMessage),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (booking.status == 'pending')
+              Row(
+                children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onReject,
@@ -528,21 +556,21 @@ class _BookingTile extends StatelessWidget {
                       label: Text(strings.driverBookingsAccept),
                     ),
                   ),
-                ] else ...[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onCancel,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                      ),
-                      icon: const Icon(Icons.close),
-                      label: Text(strings.driverBookingsCancel),
-                    ),
-                  ),
                 ],
-              ],
-            ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onCancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  icon: const Icon(Icons.close),
+                  label: Text(strings.driverBookingsCancel),
+                ),
+              ),
           ],
         ],
       ),
@@ -563,7 +591,6 @@ class _BookingTile extends StatelessWidget {
       default:
         return Colors.grey[100]!;
     }
-
   }
 }
 

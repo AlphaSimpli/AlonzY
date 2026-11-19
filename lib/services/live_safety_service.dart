@@ -164,7 +164,6 @@ class LiveSafetyService {
               ),
             );
           } else if (status == RealtimeSubscribeStatus.channelError ||
-              status == RealtimeSubscribeStatus.closed ||
               status == RealtimeSubscribeStatus.timedOut) {
             _reportError(
               error ?? StateError('Realtime channel status: $status'),

@@ -2395,6 +2395,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tracking is available while the ride is in progress.'**
   String get safetyRideNotActive;
+
+  /// No description provided for @safetyTrackingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Safety tracking and sharing'**
+  String get safetyTrackingTitle;
+
+  /// No description provided for @safetyTrackingStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Safety tracking & sharing'**
+  String get safetyTrackingStart;
+
+  /// No description provided for @safetyTrackingParticipants.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} participant(s) on the map'**
+  String safetyTrackingParticipants(int count);
+
+  /// No description provided for @safetyTrackingVisibleBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Your position is visible to ride participants and anyone with your tracking link (expires in 3 hours).'**
+  String get safetyTrackingVisibleBy;
+
+  /// No description provided for @safetyTrackingNotSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Your position is not being shared.'**
+  String get safetyTrackingNotSharing;
+
+  /// No description provided for @safetyTrackingSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Your position is being shared live.'**
+  String get safetyTrackingSharing;
+
+  /// No description provided for @safetyTrackingCopyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get safetyTrackingCopyLink;
+
+  /// No description provided for @safetyTrackingSendLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to a contact'**
+  String get safetyTrackingSendLink;
+
+  /// No description provided for @safetyTrackingLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking link copied.'**
+  String get safetyTrackingLinkCopied;
+
+  /// No description provided for @safetyTrackingRecenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Recenter on my position'**
+  String get safetyTrackingRecenter;
+
+  /// No description provided for @safetyTrackingStartLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get safetyTrackingStartLabel;
+
+  /// No description provided for @safetyTrackingEndLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination'**
+  String get safetyTrackingEndLabel;
+
+  /// No description provided for @safetyTrackingMyPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'My position'**
+  String get safetyTrackingMyPosition;
+
+  /// No description provided for @safetyTrackingParticipant.
+  ///
+  /// In en, this message translates to:
+  /// **'Participant'**
+  String get safetyTrackingParticipant;
+
+  /// No description provided for @safetyTrackingLocationUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not get your location. Check location permissions.'**
+  String get safetyTrackingLocationUnavailable;
 }
 
 class _AppLocalizationsDelegate
