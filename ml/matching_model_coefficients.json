@@ -1,9 +1,20 @@
 {
   "coefficients": {
-    "detour_min": -0.03241295193445982,
-    "pref_score": 2.1515835381780506,
-    "price": -0.016081594973230987,
-    "time_gap_min": -0.012450381207427082
+    "detour_min": -0.04805053066637545,
+    "pref_score": 0.18764209248118835,
+    "price": -0.013943310092670459,
+    "time_gap_min": -0.013011450737802556
+  },
+  "evaluation_notes": {
+    "rule_log_loss": "Uses rule_score/100 as an uncalibrated probability proxy.",
+    "split": "Stratified 70/30 row split, not a passenger-held-out split.",
+    "synthetic": "Simulated distances [0,15) km; simulated speeds [20,70) km/h plus [0,5) minutes delay; available seats assumed. Includes zero-score examples. Labels are simulated from a logistic formula, not real passenger decisions. Synthetic metrics do not establish real-world superiority."
+  },
+  "feature_units": {
+    "detour_min": "minutes",
+    "pref_score": "points from 0 to 15",
+    "price": "CAD",
+    "time_gap_min": "whole minutes"
   },
   "features": [
     "detour_min",
@@ -11,14 +22,26 @@
     "pref_score",
     "price"
   ],
-  "intercept": 1.1013466922285433,
+  "intercept": 0.5147514125519183,
+  "labeled_rows": 2000,
   "metrics": {
-    "log_loss": 0.5867109765525376,
-    "roc_auc": 0.7512031174979621
+    "log_loss": 0.5541839998743637,
+    "logistic_regression": {
+      "log_loss": 0.5541839998743637,
+      "roc_auc": 0.7254320987654321
+    },
+    "roc_auc": 0.7254320987654321,
+    "rule_score": {
+      "log_loss": 0.8281108687929005,
+      "roc_auc": 0.6203798670465337
+    }
   },
   "offers": 2000,
   "passengers": 200,
+  "rule_score_definition": "Application score components, 20-point preference penalty, clamping and one-decimal rounding; excludes search filtering and ranking tie-breakers. Feedback mode uses recorded rule_score.",
   "seed": 42,
+  "source": "synthetic",
   "test_rows": 600,
-  "training_rows": 1400
+  "training_rows": 1400,
+  "unlabeled_rows_ignored": 0
 }

@@ -81,6 +81,7 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - ml/matching_model_coefficients.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

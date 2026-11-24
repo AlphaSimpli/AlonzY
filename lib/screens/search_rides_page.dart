@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_formatters.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -7,6 +8,7 @@ import '../maps/map_types.dart';
 import '../models/matching_models.dart';
 import '../models/ride.dart';
 import '../services/database_service.dart';
+import '../services/learned_matching_service.dart';
 import '../services/matching_service.dart';
 import '../services/osrm_service.dart';
 import '../services/road_route_service.dart';
@@ -19,17 +21,18 @@ import 'ride_details_page.dart';
 ///
 /// The user fills in Origin, Destination, Date and Seats using live location
 /// autocomplete, then taps "Search rides" to query available rides. Results are
-/// listed inline, sorted by departure time in normal mode, or additional road
-/// distance in explicitly enabled OSRM mode. Tapping a ride opens its detail
-/// page (route preview, driver profile, policies) for booking. The map is
-/// never opened implicitly: it only appears on the detail page once a real
-/// address has been selected.
+/// listed inline, sorted by departure time in normal mode, by rules in hybrid
+/// OSRM mode, or by the learned score when explicitly enabled. Tapping a ride
+/// opens its detail page (route preview, driver profile, policies) for booking.
+/// The map is never opened implicitly: it only appears on the detail page once
+/// a real address has been selected.
 class SearchRidesPage extends StatefulWidget {
   const SearchRidesPage({
     super.key,
     this.databaseService,
     this.routingService,
     this.roadRouteService,
+    this.learnedModelLoader,
   });
 
   final DatabaseService? databaseService;
@@ -37,6 +40,9 @@ class SearchRidesPage extends StatefulWidget {
   /// Kept for callers that explicitly inject the original route-only service.
   final RideRoutingService? routingService;
   final RoadRouteService? roadRouteService;
+
+  /// Optional injection for tests; the default loader reads the bundled model.
+  final Future<LearnedMatchingService> Function()? learnedModelLoader;
 
   @override
   State<SearchRidesPage> createState() => _SearchRidesPageState();
@@ -64,6 +70,11 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
   bool _hasSearched = false;
   String? _searchError;
   bool _useRoadRouting = false;
+  bool _useLearnedModel = false;
+  bool _modelLoading = false;
+  bool _resultsUsedLearnedModel = false;
+  bool _resultsUsedSyntheticModel = false;
+  LearnedMatchingService? _learnedModel;
   bool _routingInProgress = false;
   RoutedRideSearch? _routedResults;
   HybridRideSearch? _hybridResults;
@@ -84,6 +95,33 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       _startLocation != null && _selectedStartAddress == _startController.text;
   bool get _hasSelectedDestination =>
       _endLocation != null && _selectedEndAddress == _endController.text;
+
+  Future<LearnedMatchingService> _loadLearnedModel() async {
+    final cached = _learnedModel;
+    if (cached != null) return cached;
+    try {
+      final model =
+          await (widget.learnedModelLoader?.call() ??
+              LearnedMatchingService.load());
+      _learnedModel = model;
+      return model;
+    } catch (error) {
+      debugPrint('Model loading failed (${error.runtimeType})');
+      throw const _LearnedModelUnavailable();
+    }
+  }
+
+  // Called inside setState when switching modes, never during a pending search.
+  void _clearDisplayedResults() {
+    _hasSearched = false;
+    _searchResults = [];
+    _routedResults = null;
+    _hybridResults = null;
+    _feedbackIds.clear();
+    _searchError = null;
+    _resultsUsedLearnedModel = false;
+    _resultsUsedSyntheticModel = false;
+  }
 
   @override
   void dispose() {
@@ -155,6 +193,8 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     final selectedOrigin = _hasSelectedOrigin ? _startLocation : null;
     final selectedDestination = _hasSelectedDestination ? _endLocation : null;
     final useRoadRouting = _useRoadRouting;
+    final useLearnedModel =
+        useRoadRouting && _useLearnedModel && widget.routingService == null;
     if (useRoadRouting &&
         (selectedOrigin == null ||
             selectedDestination == null ||
@@ -171,6 +211,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
     final destinationText = _endController.text.trim();
     final minSeats = _minSeats;
     final date = _selectedDate;
+    final preferredTime = _preferredTime;
     setState(() {
       _loading = true;
       _hasSearched = true;
@@ -180,9 +221,16 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       _hybridResults = null;
       _feedbackIds.clear();
       _routingInProgress = false;
+      _modelLoading = useLearnedModel && _learnedModel == null;
+      _resultsUsedLearnedModel = false;
+      _resultsUsedSyntheticModel = false;
     });
 
     try {
+      // Fail explicitly before database/OSRM work if the chosen model is absent.
+      final model = useLearnedModel ? await _loadLearnedModel() : null;
+      if (!mounted) return;
+      if (_modelLoading) setState(() => _modelLoading = false);
       final dateTime = date == null
           ? null
           : DateTime(date.year, date.month, date.day);
@@ -234,8 +282,8 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                 preferredDate.year,
                 preferredDate.month,
                 preferredDate.day,
-                _preferredTime.hour,
-                _preferredTime.minute,
+                preferredTime.hour,
+                preferredTime.minute,
               ),
               isSmoker: false,
               hasPet: false,
@@ -250,7 +298,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
               selectedDestination.longitude,
             ),
             routingService: _roadRouter,
+            learnedPredictor: model?.predictProbability,
           );
+          if (!mounted) return;
           final feedbackIds = await _dbService.recordMatchFeedback([
             for (final match in hybrid.matches)
               MatchFeedbackDraft(
@@ -278,6 +328,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
         _hybridResults = hybrid;
         _loading = false;
         _routingInProgress = false;
+        _modelLoading = false;
+        _resultsUsedLearnedModel = useLearnedModel;
+        _resultsUsedSyntheticModel = model?.isSynthetic ?? false;
       });
 
       debugPrint(
@@ -288,13 +341,20 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
       debugPrint(
         'Search failed (${e is OsrmException ? e.code : e.runtimeType})',
       );
+      if (e is PostgrestException) {
+        // Do not print details: a constraint error can include row values.
+        debugPrint(
+          'Matching database error: code=${e.code}; message=${e.message}',
+        );
+      }
       if (!mounted) return;
       final strings = AppLocalizations.of(context);
       // Keep the diagnostic in the log, not in a user-facing untranslated error.
-      final message =
-          e is StateError &&
-              e.message ==
-                  'More than 100 nearby offers. Narrow the date, price or seat filters.'
+      final message = e is _LearnedModelUnavailable
+          ? strings.searchLearnedFailed
+          : e is StateError &&
+                e.message ==
+                    'More than 100 nearby offers. Narrow the date, price or seat filters.'
           ? strings.searchTooMany
           : e is OsrmException
           ? e.code == 'tooManyCandidates'
@@ -308,6 +368,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
         _routedResults = null;
         _hybridResults = null;
         _routingInProgress = false;
+        _modelLoading = false;
+        _resultsUsedLearnedModel = false;
+        _resultsUsedSyntheticModel = false;
       });
       ScaffoldMessenger.of(
         context,
@@ -502,6 +565,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                     ),
                     const SizedBox(height: 12),
                     SwitchListTile.adaptive(
+                      key: const Key('road-routing-toggle'),
                       contentPadding: EdgeInsets.zero,
                       title: Text(strings.searchRoadToggle),
                       value: _useRoadRouting,
@@ -509,13 +573,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                           ? null
                           : (value) => setState(() {
                               _useRoadRouting = value;
+                              if (!value) _useLearnedModel = false;
                               // Do not leave badges/results from a different mode visible.
-                              _hasSearched = false;
-                              _searchResults = [];
-                              _routedResults = null;
-                              _hybridResults = null;
-                              _feedbackIds.clear();
-                              _searchError = null;
+                              _clearDisplayedResults();
                             }),
                     ),
                     if (_useRoadRouting)
@@ -525,6 +585,20 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                           RideRoutingService.maxExtraDistanceKm,
                         ),
                         style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    if (_useRoadRouting && widget.routingService == null)
+                      SwitchListTile.adaptive(
+                        key: const Key('learned-model-toggle'),
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(strings.searchLearnedToggle),
+                        subtitle: Text(strings.searchLearnedHelp),
+                        value: _useLearnedModel,
+                        onChanged: _loading
+                            ? null
+                            : (value) => setState(() {
+                                _useLearnedModel = value;
+                                _clearDisplayedResults();
+                              }),
                       ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
@@ -540,7 +614,9 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                             )
                           : const Icon(Icons.search),
                       label: Text(
-                        _routingInProgress
+                        _modelLoading
+                            ? strings.searchLearnedLoading
+                            : _routingInProgress
                             ? strings.searchRoadLoading
                             : _loading
                             ? strings.searchLoading
@@ -561,7 +637,12 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                _routedResults != null
+                _resultsUsedLearnedModel
+                    ? strings.searchLearnedResults(
+                        _hybridResults!.matches.length,
+                        _hybridResults!.excludedCount,
+                      )
+                    : _routedResults != null
                     ? strings.searchRoadResults(
                         _routedResults!.rides.length,
                         _routedResults!.excludedCount,
@@ -571,6 +652,13 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
                         _hybridResults!.excludedCount,
                       ),
               ),
+            ),
+          if (!_loading &&
+              _resultsUsedLearnedModel &&
+              _resultsUsedSyntheticModel)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(strings.searchLearnedSyntheticNotice),
             ),
           if (_loading)
             const Padding(
@@ -600,6 +688,7 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
           else
             for (final ride in _searchResults)
               _RideCard(
+                key: ValueKey('search-ride-${ride.id}'),
                 ride: ride,
                 detour: _routedResults?.rides
                     .where((result) => identical(result.ride, ride))
@@ -636,6 +725,10 @@ class _SearchRidesPageState extends State<SearchRidesPage> {
 // Private building blocks
 // ---------------------------------------------------------------------------
 
+class _LearnedModelUnavailable implements Exception {
+  const _LearnedModelUnavailable();
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.icon,
@@ -670,6 +763,7 @@ class _EmptyState extends StatelessWidget {
 
 class _RideCard extends StatelessWidget {
   const _RideCard({
+    super.key,
     required this.ride,
     required this.onTap,
     this.detour,
@@ -826,15 +920,34 @@ class _RideCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        strings.searchHybridDetour(
-                          match!.detour.extraDurationMinutes.round(),
-                          match!.match.score.round(),
-                        ),
+                        match!.usesLearnedScore
+                            ? strings.searchRuleDetour(
+                                match!.detour.extraDurationMinutes.round(),
+                                match!.match.score.round(),
+                              )
+                            : strings.searchHybridDetour(
+                                match!.detour.extraDurationMinutes.round(),
+                                match!.match.score.round(),
+                              ),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                   ],
                 ),
+                if (match!.usesLearnedScore) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    strings.searchLearnedScore(
+                      NumberFormat(
+                        '0.0',
+                        strings.localeName,
+                      ).format(match!.rankingScore),
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 if (onReject != null)
                   Align(
                     alignment: Alignment.centerRight,

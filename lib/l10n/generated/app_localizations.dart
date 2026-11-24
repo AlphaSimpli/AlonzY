@@ -1334,6 +1334,54 @@ abstract class AppLocalizations {
   /// **'Decline this suggestion'**
   String get searchRejectMatch;
 
+  /// No description provided for @searchLearnedToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the learned model (experimental)'**
+  String get searchLearnedToggle;
+
+  /// No description provided for @searchLearnedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Ranks offers with the learned model while keeping the same exclusions. The experimental score is not a real-world acceptance probability.'**
+  String get searchLearnedHelp;
+
+  /// No description provided for @searchLearnedSyntheticNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This model was trained only on synthetic data. Its performance with real users has not been established.'**
+  String get searchLearnedSyntheticNotice;
+
+  /// No description provided for @searchLearnedLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the experimental model…'**
+  String get searchLearnedLoading;
+
+  /// No description provided for @searchLearnedFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The experimental model is unavailable. Retry or disable this option to use the rules. No substitute ranking has been displayed.'**
+  String get searchLearnedFailed;
+
+  /// No description provided for @searchLearnedResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Experimental learned-model ranking, with the same exclusions as rule-based ranking. Offers retained: {count}. Offers not retained: {excluded}.'**
+  String searchLearnedResults(int count, int excluded);
+
+  /// No description provided for @searchLearnedScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Experimental model score: {score}/100'**
+  String searchLearnedScore(String score);
+
+  /// No description provided for @searchRuleDetour.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min detour · rule score: {score}/100'**
+  String searchRuleDetour(int minutes, int score);
+
   /// No description provided for @profileSettingsTitle.
   ///
   /// In en, this message translates to:

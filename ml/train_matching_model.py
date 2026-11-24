@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train a deterministic logistic-regression baseline on synthetic ride matches."""
+"""Train on simulated matches or feedback and compare with application rules."""
 
 from __future__ import annotations
 
@@ -16,6 +16,11 @@ from sklearn.metrics import log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+if __package__:
+    from .rule_score import calculate_rule_score
+else:
+    from rule_score import calculate_rule_score
+
 SEED = 42
 FEATURES = ("detour_min", "time_gap_min", "pref_score", "price")
 LABEL = "accepted"
@@ -25,23 +30,50 @@ RULE_SCORE = "rule_score"
 def build_synthetic_dataset(
     seed: int = SEED,
 ) -> tuple[np.ndarray, np.ndarray, int, int]:
+    """Keep the existing public interface used by the training tests."""
+    features, labels, _rules, passengers, offers = _build_synthetic_evaluation(seed)
+    return features, labels, passengers, offers
+
+
+def _build_synthetic_evaluation(
+    seed: int = SEED,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int]:
+    """Simulate distances and preferences; these are not real OSRM observations."""
     rng = np.random.default_rng(seed)
     passenger_count = 200
     offer_count = 2000
 
-    passenger_preferences = rng.uniform(0.0, 1.0, passenger_count)
+    passenger_smoker = rng.random(passenger_count) < 0.20
+    passenger_pet = rng.random(passenger_count) < 0.25
+    passenger_luggage = rng.random(passenger_count) < 0.30
     passenger_time_windows = rng.uniform(0.0, 90.0, passenger_count)
     passenger_ids = np.repeat(np.arange(passenger_count), offer_count // passenger_count)
 
-    detour = rng.gamma(shape=2.2, scale=7.0, size=offer_count).clip(0, 120)
-    departure_gap = np.abs(
-        rng.normal(passenger_time_windows[passenger_ids], 35.0, offer_count)
-    ).clip(0, 240)
-    preference = np.clip(
-        passenger_preferences[passenger_ids] + rng.normal(0.0, 0.25, offer_count),
-        0,
-        1,
+    # Distances are generated explicitly, never inferred from existing minutes.
+    # Speeds and extra delay are assumptions for this simulation, not road data.
+    detour_km = rng.uniform(0.0, 15.0, offer_count)
+    simulated_speed_kmh = rng.uniform(20.0, 70.0, offer_count)
+    detour = detour_km / simulated_speed_kmh * 60.0
+    detour += rng.uniform(0.0, 5.0, offer_count)
+    departure_gap = np.floor(
+        np.abs(
+            rng.normal(passenger_time_windows[passenger_ids], 35.0, offer_count)
+        ).clip(0, 240)
     )
+
+    # Match _rideOffer's current no-smoking default and simulate other options.
+    allows_smoking = np.zeros(offer_count, dtype=bool)
+    accepts_pets = rng.random(offer_count) < 0.65
+    has_large_trunk = rng.random(offer_count) < 0.50
+    smoker_compatible = ~passenger_smoker[passenger_ids] | allows_smoking
+    pet_compatible = ~passenger_pet[passenger_ids] | accepts_pets
+    luggage_compatible = ~passenger_luggage[passenger_ids] | has_large_trunk
+    preference = 5.0 * (
+        smoker_compatible.astype(int)
+        + pet_compatible.astype(int)
+        + luggage_compatible.astype(int)
+    )
+    preference_mismatch = ~pet_compatible | ~luggage_compatible
     price = rng.uniform(5.0, 100.0, offer_count)
 
     features = np.column_stack((detour, departure_gap, preference, price))
@@ -49,13 +81,19 @@ def build_synthetic_dataset(
         1.6
         - 0.045 * detour
         - 0.016 * departure_gap
-        + 2.2 * preference
+        + 2.2 * (preference / 15.0)
         - 0.018 * price
+        - 0.8 * preference_mismatch
         + rng.normal(0.0, 0.8, offer_count)
     )
     probabilities = 1.0 / (1.0 + np.exp(-latent_acceptance))
     labels = rng.binomial(1, probabilities)
-    return features, labels, passenger_count, offer_count
+    rule_scores = _synthetic_rule_scores(
+        features,
+        detour_km=detour_km,
+        preference_mismatch=preference_mismatch,
+    )
+    return features, labels, rule_scores, passenger_count, offer_count
 
 
 def _read_feedback_rows(path: Path) -> list[dict[str, Any]]:
@@ -138,11 +176,34 @@ def _read_feedback_dataset(
     )
 
 
-def _synthetic_rule_scores(features: np.ndarray) -> np.ndarray:
-    detour, time_gap, preference, _price = features.T
-    geographic = 50 * np.clip(1 - detour / 45, 0, 1)
-    temporal = 35 * np.clip(1 - np.maximum(0, time_gap - 10) / 50, 0, 1)
-    return np.clip(geographic + temporal + preference * 15, 0, 100)
+def _synthetic_rule_scores(
+    features: np.ndarray,
+    *,
+    detour_km: np.ndarray,
+    preference_mismatch: np.ndarray,
+) -> np.ndarray:
+    """Use the tested rule calculation, with explicit distance and penalty."""
+    if (
+        features.ndim != 2
+        or features.shape[1] != len(FEATURES)
+        or detour_km.shape != (len(features),)
+        or preference_mismatch.shape != (len(features),)
+    ):
+        raise ValueError("Features, distances and preference flags must align.")
+    return np.asarray(
+        [
+            calculate_rule_score(
+                detour_km=float(distance),
+                time_gap_min=float(row[1]),
+                pref_score=float(row[2]),
+                has_preference_mismatch=bool(mismatch),
+            )
+            for row, distance, mismatch in zip(
+                features, detour_km, preference_mismatch
+            )
+        ],
+        dtype=float,
+    )
 
 
 def train_and_export(
@@ -150,8 +211,13 @@ def train_and_export(
     feedback_data: Path | None = None,
 ) -> dict[str, object]:
     if feedback_data is None:
-        features, labels, passenger_count, offer_count = build_synthetic_dataset()
-        rule_scores = _synthetic_rule_scores(features)
+        (
+            features,
+            labels,
+            rule_scores,
+            passenger_count,
+            offer_count,
+        ) = _build_synthetic_evaluation()
         source = "synthetic"
         unlabeled_rows = 0
     else:
@@ -219,6 +285,31 @@ def train_and_export(
         "training_rows": int(len(x_train)),
         "test_rows": int(len(x_test)),
         "features": list(FEATURES),
+        "feature_units": {
+            "detour_min": "minutes",
+            "time_gap_min": "whole minutes",
+            "pref_score": "points from 0 to 15",
+            "price": "CAD",
+        },
+        "rule_score_definition": (
+            "Application score components, 20-point preference penalty, "
+            "clamping and one-decimal rounding; excludes search filtering "
+            "and ranking tie-breakers. Feedback mode uses recorded rule_score."
+        ),
+        "evaluation_notes": {
+            "split": "Stratified 70/30 row split, not a passenger-held-out split.",
+            "rule_log_loss": (
+                "Uses rule_score/100 as an uncalibrated probability proxy."
+            ),
+            "synthetic": (
+                "Simulated distances [0,15) km; simulated speeds [20,70) km/h "
+                "plus [0,5) minutes delay; available seats assumed. "
+                "Includes zero-score examples. Labels are simulated from a "
+                "logistic formula, not real passenger decisions. "
+                "Synthetic metrics do not establish real-world superiority."
+                if feedback_data is None else None
+            ),
+        },
         "coefficients": {
             name: float(value)
             for name, value in zip(FEATURES, raw_coefficients)
