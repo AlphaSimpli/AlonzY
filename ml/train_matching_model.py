@@ -47,7 +47,9 @@ def _build_synthetic_evaluation(
     passenger_pet = rng.random(passenger_count) < 0.25
     passenger_luggage = rng.random(passenger_count) < 0.30
     passenger_time_windows = rng.uniform(0.0, 90.0, passenger_count)
-    passenger_ids = np.repeat(np.arange(passenger_count), offer_count // passenger_count)
+    passenger_ids = np.repeat(
+        np.arange(passenger_count), offer_count // passenger_count
+    )
 
     # Distances are generated explicitly, never inferred from existing minutes.
     # Speeds and extra delay are assumptions for this simulation, not road data.
@@ -198,9 +200,7 @@ def _synthetic_rule_scores(
                 pref_score=float(row[2]),
                 has_preference_mismatch=bool(mismatch),
             )
-            for row, distance, mismatch in zip(
-                features, detour_km, preference_mismatch
-            )
+            for row, distance, mismatch in zip(features, detour_km, preference_mismatch)
         ],
         dtype=float,
     )
@@ -282,8 +282,8 @@ def train_and_export(
         "offers": offer_count,
         "labeled_rows": len(labels),
         "unlabeled_rows_ignored": unlabeled_rows,
-        "training_rows": int(len(x_train)),
-        "test_rows": int(len(x_test)),
+        "training_rows": len(x_train),
+        "test_rows": len(x_test),
         "features": list(FEATURES),
         "feature_units": {
             "detour_min": "minutes",
@@ -307,12 +307,12 @@ def train_and_export(
                 "Includes zero-score examples. Labels are simulated from a "
                 "logistic formula, not real passenger decisions. "
                 "Synthetic metrics do not establish real-world superiority."
-                if feedback_data is None else None
+                if feedback_data is None
+                else None
             ),
         },
         "coefficients": {
-            name: float(value)
-            for name, value in zip(FEATURES, raw_coefficients)
+            name: float(value) for name, value in zip(FEATURES, raw_coefficients)
         },
         "intercept": float(raw_intercept),
         "metrics": {

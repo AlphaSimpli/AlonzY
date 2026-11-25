@@ -535,7 +535,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginSubtitle => 'Sign in to find or share your next ride.';
 
   @override
-  String get newToAlonzy => 'New to Alonzy?';
+  String get newToAlonzy => 'New to AlonzY?';
 
   @override
   String get createAnAccount => 'Create an account';
@@ -678,7 +678,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String searchRoadHelp(int limit, int km) {
-    return 'Select both suggested addresses and a date. Passenger and offer coordinates are sent to the public OSRM server and may be logged. Prototype: at most $limit preselected offers and $km km of additional detour. Estimates do not include live traffic.';
+    return 'Select both suggested addresses and a date. Passenger and offer coordinates are sent to the public OSRM server and may be logged. Experimental ranking: at most $limit preselected offers and $km km of additional detour. Estimates do not include live traffic.';
   }
 
   @override

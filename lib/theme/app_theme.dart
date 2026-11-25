@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Central palette for the Alonzy design system.
+/// Central palette for the AlonzY design system.
 ///
 /// Keep brand colours here so screens never hardcode raw hex values.
 abstract final class AppColors {
@@ -21,7 +21,7 @@ abstract final class AppColors {
   static const Color gradientEnd = Color(0xFF4F46E5);
 }
 
-/// Alonzy app theme (Material 3).
+/// AlonzY app theme (Material 3).
 abstract final class AppTheme {
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
@@ -59,21 +59,17 @@ abstract final class AppTheme {
         fillColor: AppColors.surface,
         hintStyle: const TextStyle(color: AppColors.textSecondary),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
         prefixIconColor: AppColors.textSecondary,
         suffixIconColor: AppColors.textSecondary,
         border: _outlineBorder(),
         enabledBorder: _outlineBorder(),
-        focusedBorder: _outlineBorder(
-          color: AppColors.primary,
-          width: 1.8,
-        ),
+        focusedBorder: _outlineBorder(color: AppColors.primary, width: 1.8),
         errorBorder: _outlineBorder(color: AppColors.danger),
-        focusedErrorBorder: _outlineBorder(
-          color: AppColors.danger,
-          width: 1.8,
-        ),
+        focusedErrorBorder: _outlineBorder(color: AppColors.danger, width: 1.8),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -82,10 +78,7 @@ abstract final class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           elevation: 0,
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -125,9 +118,7 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         side: const BorderSide(color: AppColors.divider),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
@@ -155,9 +146,7 @@ abstract final class AppTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.textPrimary,
         contentTextStyle: const TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
 
       dividerTheme: const DividerThemeData(

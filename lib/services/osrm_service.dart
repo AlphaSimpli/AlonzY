@@ -221,7 +221,8 @@ class OsrmService {
               // Browsers set their own User-Agent/Referer and forbid overriding UA.
               if (!const bool.fromEnvironment('dart.library.js_interop') &&
                   !const bool.fromEnvironment('dart.library.js'))
-                'User-Agent': 'AlonzY/1.0 (university carpool prototype)',
+                'User-Agent':
+                    'AlonzY/1.0 (+https://github.com/AlphaSimpli/AlonzY)',
             },
           )
           .timeout(timeout);
@@ -272,7 +273,9 @@ class OsrmService {
     final geometry = <OsrmCoordinate>[];
     if (includeGeometry) {
       final rawGeometry = route['geometry'];
-      final coordinates = rawGeometry is Map ? rawGeometry['coordinates'] : null;
+      final coordinates = rawGeometry is Map
+          ? rawGeometry['coordinates']
+          : null;
       if (rawGeometry is! Map ||
           rawGeometry['type'] != 'LineString' ||
           coordinates is! List ||

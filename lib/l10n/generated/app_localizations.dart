@@ -1001,7 +1001,7 @@ abstract class AppLocalizations {
   /// No description provided for @newToAlonzy.
   ///
   /// In en, this message translates to:
-  /// **'New to Alonzy?'**
+  /// **'New to AlonzY?'**
   String get newToAlonzy;
 
   /// No description provided for @createAnAccount.
@@ -1259,7 +1259,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchRoadHelp.
   ///
   /// In en, this message translates to:
-  /// **'Select both suggested addresses and a date. Passenger and offer coordinates are sent to the public OSRM server and may be logged. Prototype: at most {limit} preselected offers and {km} km of additional detour. Estimates do not include live traffic.'**
+  /// **'Select both suggested addresses and a date. Passenger and offer coordinates are sent to the public OSRM server and may be logged. Experimental ranking: at most {limit} preselected offers and {km} km of additional detour. Estimates do not include live traffic.'**
   String searchRoadHelp(int limit, int km);
 
   /// No description provided for @searchRoadRequired.

@@ -111,69 +111,82 @@ void main() {
     },
   );
 
-  test('batches up to 100 offers within the 50-coordinate OSRM limit', () async {
-    service.close();
-    service = RoadRouteService(
-      client: MockClient((request) async {
-        requests.add(request);
-        final sourceCount = request.url.queryParameters['sources']!
-            .split(';')
-            .length;
-        final destinationCount = request.url.queryParameters['destinations']!
-            .split(';')
-            .length;
-        final matrix = List<List<int>>.generate(
-          sourceCount,
-          (_) => List<int>.filled(destinationCount, 300),
-        );
-        return http.Response(
-          jsonEncode({'code': 'Ok', 'durations': matrix, 'distances': matrix}),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-      baseUri: Uri.parse('https://osrm.example.test'),
-    );
-
-    final result = await service.calculateDetours(
-      candidates: List.generate(100, (index) => testRide(id: 'ride-$index')),
-      pickup: pickup,
-      dropoff: dropoff,
-    );
-
-    expect(result, hasLength(100));
-    expect(
-      requests,
-      hasLength((100 / RoadRouteService.maxCandidatesPerBatch).ceil()),
-    );
-    for (final request in requests) {
-      final coordinates = Uri.decodeComponent(
-        request.url.pathSegments.last,
-      ).split(';');
-      expect(
-        coordinates.length,
-        lessThanOrEqualTo(RoadRouteService.maxCoordinatesPerRequest),
+  test(
+    'batches up to 100 offers within the 50-coordinate OSRM limit',
+    () async {
+      service.close();
+      service = RoadRouteService(
+        client: MockClient((request) async {
+          requests.add(request);
+          final sourceCount = request.url.queryParameters['sources']!
+              .split(';')
+              .length;
+          final destinationCount = request.url.queryParameters['destinations']!
+              .split(';')
+              .length;
+          final matrix = List<List<int>>.generate(
+            sourceCount,
+            (_) => List<int>.filled(destinationCount, 300),
+          );
+          return http.Response(
+            jsonEncode({
+              'code': 'Ok',
+              'durations': matrix,
+              'distances': matrix,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        baseUri: Uri.parse('https://osrm.example.test'),
       );
-    }
-  });
 
-  test('rejects more than 100 candidates without making OSRM requests', () async {
-    await expectLater(
-      service.calculateDetours(
-        candidates: List.generate(101, (index) => testRide(id: 'ride-$index')),
+      final result = await service.calculateDetours(
+        candidates: List.generate(100, (index) => testRide(id: 'ride-$index')),
         pickup: pickup,
         dropoff: dropoff,
-      ),
-      throwsA(
-        isA<OsrmException>().having(
-          (error) => error.code,
-          'code',
-          'tooManyCandidates',
+      );
+
+      expect(result, hasLength(100));
+      expect(
+        requests,
+        hasLength((100 / RoadRouteService.maxCandidatesPerBatch).ceil()),
+      );
+      for (final request in requests) {
+        final coordinates = Uri.decodeComponent(
+          request.url.pathSegments.last,
+        ).split(';');
+        expect(
+          coordinates.length,
+          lessThanOrEqualTo(RoadRouteService.maxCoordinatesPerRequest),
+        );
+      }
+    },
+  );
+
+  test(
+    'rejects more than 100 candidates without making OSRM requests',
+    () async {
+      await expectLater(
+        service.calculateDetours(
+          candidates: List.generate(
+            101,
+            (index) => testRide(id: 'ride-$index'),
+          ),
+          pickup: pickup,
+          dropoff: dropoff,
         ),
-      ),
-    );
-    expect(requests, isEmpty);
-  });
+        throwsA(
+          isA<OsrmException>().having(
+            (error) => error.code,
+            'code',
+            'tooManyCandidates',
+          ),
+        ),
+      );
+      expect(requests, isEmpty);
+    },
+  );
 
   test('rejects malformed or dimensionally incomplete matrices', () async {
     service.close();
@@ -207,11 +220,11 @@ void main() {
     () async {
       service.close();
       final response = matrixResponse();
-    response['durations'] = [
-      [null, 600, 900],
-      [0, 400, 500],
-      [300, 0, 500],
-    ];
+      response['durations'] = [
+        [null, 600, 900],
+        [0, 400, 500],
+        [300, 0, 500],
+      ];
       service = RoadRouteService(
         client: MockClient(
           (_) async => http.Response(jsonEncode(response), 200),

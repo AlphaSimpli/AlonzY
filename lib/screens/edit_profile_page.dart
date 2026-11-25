@@ -45,7 +45,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _colorController = TextEditingController(text: user.vehicleColor);
     _plateController = TextEditingController(text: user.vehiclePlate);
     _yearController = TextEditingController(
-        text: user.vehicleYear?.toString() ?? '');
+      text: user.vehicleYear?.toString() ?? '',
+    );
     _contactPreference = user.contactPreference;
   }
 
@@ -96,9 +97,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).editProfileSaved),
-        ),
+        SnackBar(content: Text(AppLocalizations.of(context).editProfileSaved)),
       );
       Navigator.pop(context, true);
     } catch (error) {
@@ -304,11 +303,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.children,
-    this.subtitle,
-  });
+  const _Section({required this.title, required this.children, this.subtitle});
 
   final String title;
   final String? subtitle;
@@ -325,10 +320,7 @@ class _Section extends StatelessWidget {
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
-              Text(
-                subtitle!,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
             ],
             const SizedBox(height: 16),
             ...children,

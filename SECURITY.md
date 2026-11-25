@@ -1,147 +1,96 @@
-# Security Guidelines
+# Security
 
-## Overview
+AlonzY handles account, trip, and location data. Use a dedicated development
+Supabase project while evaluating the application, and review database
+migrations and access policies before deployment.
 
-This document outlines the security measures in place for this Flutter application and best practices for maintaining security.
+## Credential handling
 
-## Credential Management
+- Keep local `.env` files out of version control; `.env.example` contains
+  placeholders for required configuration.
+- The Supabase anon/publishable key is a client identifier, not an authorization
+  boundary. Access control must be enforced by authentication and Row-Level
+  Security (RLS).
+- Never place a Supabase `service_role` key or other server secret in the
+  Flutter app, web tracker, or a public repository.
+- The app bundles its client configuration for runtime use. Do not treat
+  `.env` as encrypted storage.
 
-### Environment Variables
-- **Never commit `.env` files** to version control
-- Use `.env.example` as a template for required variables
-- Load credentials at runtime using `flutter_dotenv`
-- Credentials are loaded from `lib/main.dart` during initialization
+## Location and safety sharing
 
-### File Patterns in `.gitignore`
-```
-.env
-.env.local
-.env.*.local
-```
+- Live location sharing requires explicit in-app consent.
+- External safety links are bearer links: anyone with an active link may view
+  its permitted trip information until it expires or is revoked.
+- Sharing is configured to expire after three hours and can be revoked by the
+  user. Review [LIVE_SAFETY_TRACK.md](LIVE_SAFETY_TRACK.md) and the associated
+  RLS policies before changing this flow.
+- OSRM receives the route coordinates needed to estimate detours. Select a
+  routing endpoint whose privacy and operational terms suit your deployment.
 
-## Supabase Security
+## Reporting a vulnerability
 
-### API Keys
-- The **anonymous key** (`SUPABASE_ANON_KEY`) is safe to expose in client-side code
-- Never expose the **service role key** in client applications
-- Rotate keys periodically as a security best practice
+Please do not publish exploitable details in a public issue. Use GitHub's
+private vulnerability reporting for this repository when available, or contact
+the maintainers privately through the repository organization.
 
-### Row-Level Security (RLS)
-- Enable RLS on all Supabase tables
-- Define appropriate policies for read/write access
-- Test RLS policies thoroughly before production
+## Before deployment
 
-### Authentication
-- Use strong password requirements
-- Implement email verification flows
-- Handle session tokens securely
-- Never log credentials
+1. Apply reviewed migrations to a non-production environment first.
+2. Verify RLS policies for every user-facing table and RPC.
+3. Configure only public Supabase client values in the Flutter and Pages
+   deployments; keep server secrets in protected server-side settings.
+4. Confirm tracker URLs, token expiry, consent, revocation, and platform
+   location permissions.
+5. Avoid logging credentials, access tokens, exact locations, or row contents.
 
-## Platform-Specific Security
+# Sécurité
 
-### iOS
-- Ensure Location permissions are properly requested
-- Use HTTPS for all API calls
-- Keep CocoaPods dependencies updated
+AlonzY traite des données de compte, de trajet et de localisation. Utilisez un
+projet Supabase de développement dédié pour évaluer l’application et vérifiez
+les migrations et les politiques d’accès avant tout déploiement.
 
-### Android
-- Enable network security configuration
-- Request runtime permissions appropriately
-- Verify Google Play Signing is configured
+## Gestion des identifiants
 
-## Google Maps API Key Security
+- Gardez les fichiers `.env` locaux hors du contrôle de version;
+  `.env.example` ne contient que des valeurs fictives.
+- La clé anon/publishable de Supabase est un identifiant client, pas une
+  frontière d’autorisation. Le contrôle d’accès doit reposer sur
+  l’authentification et les politiques RLS.
+- N’inscrivez jamais une clé Supabase `service_role` ou un secret serveur dans
+  l’application Flutter, le suivi web ou un dépôt public.
+- L’application inclut sa configuration client pour l’exécution. `.env` n’est
+  pas un stockage chiffré.
 
-### Handling API Keys
-- Use separate keys for development and production
-- Restrict API key usage in Google Cloud Console
-- Regenerate keys if compromised
+## Partage de localisation et de sécurité
 
-### Platform-Specific Configuration
-- **iOS**: Key is added in native configuration
-- **Android**: Key is added in `AndroidManifest.xml`
-- Never hardcode API keys in Dart code
+- Le partage de position en direct exige un consentement explicite dans
+  l’application.
+- Les liens de sécurité externes sont des liens porteurs : toute personne qui
+  détient un lien actif peut voir les renseignements permis jusqu’à son
+  expiration ou sa révocation.
+- Le partage expire après trois heures et peut être révoqué par l’utilisateur.
+  Consultez [LIVE_SAFETY_TRACK.md](LIVE_SAFETY_TRACK.md) et les politiques RLS
+  associées avant de modifier ce flux.
+- OSRM reçoit les coordonnées nécessaires à l’estimation des détours.
+  Choisissez un point de terminaison dont les pratiques de confidentialité et
+  les conditions opérationnelles conviennent au déploiement.
 
-## Data Handling
+## Signaler une vulnérabilité
 
-### Sensitive Information
-- Avoid logging sensitive user data
-- Clear sensitive data from memory when no longer needed
-- Use HTTPS for all network communications
-- Validate and sanitize all user inputs
+Ne publiez pas de détails exploitables dans un problème public. Utilisez le
+signalement privé de vulnérabilités GitHub si cette fonction est activée pour
+le dépôt, ou contactez les responsables en privé par l’organisation GitHub.
 
-### Local Storage
-- Use secure storage for tokens if implementing local persistence
-- Clear app cache when user logs out
-- Never store passwords locally
+## Avant le déploiement
 
-## Deployment Security
-
-### Before Publishing
-
-1. **Rotate Credentials**
-   - Generate new Supabase keys for production
-   - Update all API keys to production versions
-
-2. **Code Review**
-   - Audit code for hardcoded secrets
-   - Review all API endpoints
-   - Check for debug logging statements
-
-3. **Testing**
-   - Test authentication flows
-   - Verify RLS policies are working
-   - Test error handling for failed requests
-
-### Post-Deployment
-
-1. **Monitor**
-   - Watch for unusual API usage patterns
-   - Monitor error rates and logs
-   - Track authentication failures
-
-2. **Maintenance**
-   - Keep dependencies updated
-   - Apply security patches promptly
-   - Review and update security policies regularly
-
-## Incident Response
-
-If credentials are compromised:
-
-1. **Immediately rotate** all exposed keys in Supabase
-2. **Revert** the commit containing sensitive data (force push to origin)
-3. **Scan** git history for other exposed credentials
-4. **Notify users** if user data was potentially affected
-
-## Git History Cleanup
-
-If credentials were accidentally committed:
-
-```bash
-# Using BFG Repo-Cleaner (recommended for large repos)
-bfg --replace-all 'exposed_key' --no-blob-protection
-
-# Or git-filter-branch (for smaller repos)
-git filter-branch --tree-filter 'rm -f .env' HEAD
-```
-
-## Recommended Tools
-
-- **bfg**: BFG Repo-Cleaner for removing sensitive data from history
-- **detect-secrets**: Pre-commit hook to detect accidental secrets
-- **git-secrets**: AWS tool to prevent secrets in Git repos
-
-## Additional Resources
-
-- [Supabase Security Documentation](https://supabase.com/docs/guides/platform/security)
-- [Flutter Security Best Practices](https://flutter.dev/docs/development/security)
-- [OWASP Mobile Top 10](https://owasp.org/www-project-mobile-top-10/)
-- [Google Maps Security Best Practices](https://developers.google.com/maps/documentation/security/best-practices)
-
-## Questions or Concerns?
-
-If you identify a security issue, please report it responsibly to the project maintainers.
-
----
-
-**Last Updated**: May 1, 2026
+1. Appliquez d’abord les migrations vérifiées dans un environnement hors
+   production.
+2. Vérifiez les politiques RLS de chaque table et procédure RPC accessible aux
+   utilisateurs.
+3. Configurez uniquement les valeurs publiques du client Supabase dans Flutter
+   et Pages; conservez les secrets serveur dans des paramètres protégés côté
+   serveur.
+4. Vérifiez les URL de suivi, l’expiration et la révocation des jetons, le
+   consentement et les permissions de localisation des plateformes.
+5. Évitez de journaliser des identifiants, jetons d’accès, positions précises ou
+   contenus de lignes.

@@ -29,10 +29,7 @@ void main() {
 
     test('serializes to json', () {
       const location = MapLocation(37.7749, -122.4194);
-      expect(location.toJson(), {
-        'latitude': 37.7749,
-        'longitude': -122.4194,
-      });
+      expect(location.toJson(), {'latitude': 37.7749, 'longitude': -122.4194});
     });
   });
 
@@ -47,7 +44,10 @@ void main() {
 
     test('copyWith overrides only provided fields', () {
       const config = MapViewConfig(initialZoom: 10);
-      final updated = config.copyWith(initialZoom: 15, trackCameraPosition: true);
+      final updated = config.copyWith(
+        initialZoom: 15,
+        trackCameraPosition: true,
+      );
       expect(updated.initialZoom, 15);
       expect(updated.trackCameraPosition, isTrue);
       expect(updated.initialCenter, config.initialCenter);
@@ -62,8 +62,9 @@ void main() {
     });
   });
 
-  testWidgets('AuthLayout renders title, subtitle and children',
-      (tester) async {
+  testWidgets('AuthLayout renders title, subtitle and children', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -72,9 +73,7 @@ void main() {
           subtitle: 'Sign in to continue.',
           showBackButton: false,
           children: [
-            TextField(
-              decoration: InputDecoration(labelText: 'Email'),
-            ),
+            TextField(decoration: InputDecoration(labelText: 'Email')),
           ],
         ),
       ),

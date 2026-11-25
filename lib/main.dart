@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<Locale>(
       valueListenable: AppLocaleController.current,
       builder: (context, locale, _) => MaterialApp(
-        title: 'Alonzy',
+        title: 'AlonzY',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         locale: locale,

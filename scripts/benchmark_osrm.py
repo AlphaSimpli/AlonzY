@@ -78,8 +78,7 @@ def query_batch(base_url: str, candidates: list[tuple]) -> list[dict]:
         str(index) for index in (count, count + 1, *range(count + 2, 2 * count + 2))
     )
     query = (
-        f"annotations=duration,distance&sources={sources}"
-        f"&destinations={destinations}"
+        f"annotations=duration,distance&sources={sources}&destinations={destinations}"
     )
     url = f"{base_url.rstrip('/')}/table/v1/driving/{coordinates}?{query}"
     try:
@@ -183,7 +182,9 @@ def benchmark(base_url: str, candidate_count: int) -> tuple[dict, list[dict]]:
     error = None
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(query_batch, base_url, batch) for batch in batches]
+            futures = [
+                executor.submit(query_batch, base_url, batch) for batch in batches
+            ]
             for future in futures:
                 routes.extend(future.result())
     except (OSError, TimeoutError, ValueError, RuntimeError) as exception:

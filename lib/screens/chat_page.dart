@@ -66,7 +66,8 @@ class _ChatPageState extends State<ChatPage> {
           .eq('ride_id', rideId)
           .listen((records) async {
             final match = records.where(
-              (row) => row['passenger_id']?.toString() ==
+              (row) =>
+                  row['passenger_id']?.toString() ==
                   widget.conversation.passengerId,
             );
             final next = match.isEmpty
@@ -91,14 +92,14 @@ class _ChatPageState extends State<ChatPage> {
       _dbService.markConversationRead(conversationId, userId);
     }
 
-    _messagesSub = _dbService
-        .watchConversation(conversationId)
-        .listen((records) {
+    _messagesSub = _dbService.watchConversation(conversationId).listen((
+      records,
+    ) {
       if (!mounted) return;
       final wasAtBottom =
           _scrollController.hasClients &&
-              _scrollController.position.pixels >=
-                  _scrollController.position.maxScrollExtent - 80;
+          _scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 80;
       setState(() => _messages = records);
       if (wasAtBottom) _scrollToBottom();
       if (userId != null) {
@@ -142,12 +143,12 @@ class _ChatPageState extends State<ChatPage> {
     } catch (error) {
       debugPrint('Could not send chat message: $error');
       if (!mounted) return;
-      setState(() =>
-          _messages = _messages.where((m) => m.id != optimistic.id).toList());
+      setState(
+        () =>
+            _messages = _messages.where((m) => m.id != optimistic.id).toList(),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).chatSendFailed),
-        ),
+        SnackBar(content: Text(AppLocalizations.of(context).chatSendFailed)),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -237,14 +238,16 @@ class _ChatPageState extends State<ChatPage> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
-                    ? _EmptyThread()
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) =>
-                            _MessageBubble(message: _messages[index], mine: _messages[index].senderId == _myId),
-                      ),
+                ? _EmptyThread()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) => _MessageBubble(
+                      message: _messages[index],
+                      mine: _messages[index].senderId == _myId,
+                    ),
+                  ),
           ),
           _Composer(
             controller: _inputController,
@@ -375,7 +378,9 @@ class _MessageBubble extends StatelessWidget {
             Text(
               message.message,
               style: TextStyle(
-                color: mine ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                color: mine
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 height: 1.35,
               ),
@@ -418,7 +423,9 @@ class _Composer extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           border: Border(
-            top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
         ),
         child: Row(
@@ -434,8 +441,10 @@ class _Composer extends StatelessWidget {
                   hintText: strings.chatWriteMessage,
                   isDense: true,
                   filled: true,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(24)),
                     borderSide: BorderSide.none,

@@ -49,7 +49,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('messages list uses French labels and empty state', (tester) async {
+  testWidgets('messages list uses French labels and empty state', (
+    tester,
+  ) async {
     await pumpFrench(tester, const ChatListPage());
 
     expect(find.text('Messages'), findsOneWidget);

@@ -101,14 +101,15 @@ void main() {
     await AppLocaleController.setLanguage('fr');
   });
 
-  testWidgets('saved language is restored and first install defaults to French', (
-    tester,
-  ) async {
-    await AppLocaleController.loadSavedLanguage();
-    expect(AppLocaleController.current.value, const Locale('fr'));
+  testWidgets(
+    'saved language is restored and first install defaults to French',
+    (tester) async {
+      await AppLocaleController.loadSavedLanguage();
+      expect(AppLocaleController.current.value, const Locale('fr'));
 
-    SharedPreferences.setMockInitialValues({'app_language': 'en'});
-    await AppLocaleController.loadSavedLanguage();
-    expect(AppLocaleController.current.value, const Locale('en'));
-  });
+      SharedPreferences.setMockInitialValues({'app_language': 'en'});
+      await AppLocaleController.loadSavedLanguage();
+      expect(AppLocaleController.current.value, const Locale('en'));
+    },
+  );
 }

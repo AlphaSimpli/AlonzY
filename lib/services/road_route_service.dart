@@ -47,8 +47,7 @@ class RoadRouteService {
   final Duration timeout;
   static const int maxCandidates = 100;
   static const int maxCoordinatesPerRequest = 50;
-  static const int maxCandidatesPerBatch =
-      (maxCoordinatesPerRequest - 2) ~/ 2;
+  static const int maxCandidatesPerBatch = (maxCoordinatesPerRequest - 2) ~/ 2;
   bool _closed = false;
 
   Future<List<RoadRouteDetour>> calculateDetours({
@@ -80,9 +79,11 @@ class RoadRouteService {
     }
 
     final batches = <List<Ride>>[
-      for (var start = 0;
-          start < snapshot.length;
-          start += maxCandidatesPerBatch)
+      for (
+        var start = 0;
+        start < snapshot.length;
+        start += maxCandidatesPerBatch
+      )
         snapshot.sublist(
           start,
           math.min(start + maxCandidatesPerBatch, snapshot.length),

@@ -4,10 +4,7 @@ import '../models/matching_models.dart';
 
 /// Compact, reusable match badge for trip cards.
 class MatchingBadge extends StatelessWidget {
-  const MatchingBadge({
-    super.key,
-    required this.result,
-  });
+  const MatchingBadge({super.key, required this.result});
 
   final MatchingResult result;
 
@@ -25,7 +22,9 @@ class MatchingBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            result.score >= 80 ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+            result.score >= 80
+                ? Icons.check_circle_rounded
+                : Icons.info_outline_rounded,
             size: 14,
             color: palette.foreground,
           ),
@@ -70,8 +69,5 @@ class _BadgePalette {
   final Color background;
   final Color foreground;
 
-  const _BadgePalette({
-    required this.background,
-    required this.foreground,
-  });
+  const _BadgePalette({required this.background, required this.foreground});
 }

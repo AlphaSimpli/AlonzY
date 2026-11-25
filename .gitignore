@@ -54,4 +54,9 @@ app.*.map.json
 !.env.example
 
 .venv-ml/
+.venv/
+venv/
 __pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

@@ -1,7 +1,7 @@
-"""Score a regles equivalent au calcul de MatchingService."""
+"""Rule-based score aligned with MatchingService."""
 
 import math
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 
 def calculate_rule_score(
@@ -12,7 +12,7 @@ def calculate_rule_score(
     has_preference_mismatch: bool = False,
     available_seats: int = 1,
 ) -> float:
-    """pref_score vaut de 0 a 15; le detour est en kilometres."""
+    """pref_score ranges from 0 to 15; detour_km is measured in kilometres."""
     if available_seats < 1:
         return 0.0
 
@@ -22,13 +22,11 @@ def calculate_rule_score(
         ("pref_score", pref_score),
     ):
         if not math.isfinite(value) or value < 0:
-            raise ValueError(f"{name} doit etre fini et positif ou nul.")
+            raise ValueError(f"{name} must be finite and non-negative.")
     if pref_score > 15:
-        raise ValueError("pref_score doit etre compris entre 0 et 15.")
+        raise ValueError("pref_score must be between 0 and 15.")
 
-    geographic = (
-        50.0 * (1.0 - detour_km / 15.0) if detour_km <= 15.0 else 0.0
-    )
+    geographic = 50.0 * (1.0 - detour_km / 15.0) if detour_km <= 15.0 else 0.0
     minutes = int(time_gap_min)
     if minutes <= 10:
         temporal = 35.0
@@ -44,7 +42,5 @@ def calculate_rule_score(
 
     # Comme toStringAsFixed(1), arrondir a une decimale.
     return float(
-        Decimal.from_float(total).quantize(
-            Decimal("0.1"), rounding=ROUND_HALF_UP
-        )
+        Decimal.from_float(total).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
     )

@@ -1,4 +1,4 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../maps/map_controller.dart';
@@ -92,10 +92,7 @@ class _RideTrackingExampleState extends State<RideTrackingExample> {
         children: [
           Positioned.fill(
             child: AppMaps.createView(
-              const MapViewConfig(
-                initialCenter: pickup,
-                initialZoom: 14,
-              ),
+              const MapViewConfig(initialCenter: pickup, initialZoom: 14),
             ).build(onMapCreated: _onMapReady),
           ),
 
@@ -140,7 +137,10 @@ class _RideTrackingExampleState extends State<RideTrackingExample> {
                       ),
                       Icon(Icons.star, color: Colors.amber),
                       SizedBox(width: 4),
-                      Text('4.8', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        '4.8',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),

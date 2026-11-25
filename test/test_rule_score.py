@@ -8,18 +8,14 @@ from ml.rule_score import calculate_rule_score
 class RuleScoreTest(unittest.TestCase):
     def test_perfect_match_scores_100(self):
         self.assertEqual(
-            calculate_rule_score(
-                detour_km=0, time_gap_min=0, pref_score=15
-            ),
+            calculate_rule_score(detour_km=0, time_gap_min=0, pref_score=15),
             100.0,
         )
 
     def test_distance_and_time_components(self):
         # Distance : 25 points ; horaire : 17,5 ; preferences : 15.
         self.assertEqual(
-            calculate_rule_score(
-                detour_km=7.5, time_gap_min=35, pref_score=15
-            ),
+            calculate_rule_score(detour_km=7.5, time_gap_min=35, pref_score=15),
             57.5,
         )
 
@@ -58,17 +54,13 @@ class RuleScoreTest(unittest.TestCase):
 
     def test_time_uses_whole_minutes(self):
         self.assertEqual(
-            calculate_rule_score(
-                detour_km=0, time_gap_min=10.9, pref_score=15
-            ),
+            calculate_rule_score(detour_km=0, time_gap_min=10.9, pref_score=15),
             100.0,
         )
 
     def test_score_is_rounded_to_one_decimal(self):
         self.assertEqual(
-            calculate_rule_score(
-                detour_km=1, time_gap_min=11, pref_score=15
-            ),
+            calculate_rule_score(detour_km=1, time_gap_min=11, pref_score=15),
             96.0,
         )
 
@@ -76,23 +68,21 @@ class RuleScoreTest(unittest.TestCase):
         # Le score Dart conserve les autres composantes au-dela de 15 km.
         # C'est rankRides qui exclut ces offres avant le classement.
         self.assertEqual(
-            calculate_rule_score(
-                detour_km=16, time_gap_min=0, pref_score=15
-            ),
+            calculate_rule_score(detour_km=16, time_gap_min=0, pref_score=15),
             50.0,
         )
 
     def test_invalid_components_are_rejected(self):
-        defaults = dict(detour_km=0, time_gap_min=0, pref_score=15)
+        defaults = {"detour_km": 0, "time_gap_min": 0, "pref_score": 15}
         for field in defaults:
             for invalid in (-1, float("nan"), float("inf")):
-                with self.subTest(field=field, value=invalid):
-                    with self.assertRaises(ValueError):
-                        calculate_rule_score(**{**defaults, field: invalid})
+                with (
+                    self.subTest(field=field, value=invalid),
+                    self.assertRaises(ValueError),
+                ):
+                    calculate_rule_score(**{**defaults, field: invalid})
         with self.assertRaises(ValueError):
-            calculate_rule_score(
-                detour_km=0, time_gap_min=0, pref_score=16
-            )
+            calculate_rule_score(detour_km=0, time_gap_min=0, pref_score=16)
 
 
 if __name__ == "__main__":

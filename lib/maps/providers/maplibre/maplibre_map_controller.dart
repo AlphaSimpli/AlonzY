@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../map_controller.dart';
@@ -258,6 +257,5 @@ class MaplibreAppMapController extends AppMapController {
     _circleMarkers.clear();
     _lines.clear();
     _styledLines.clear();
-    debugPrint('MaplibreAppMapController disposed');
   }
 }

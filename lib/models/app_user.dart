@@ -96,8 +96,9 @@ class AppUser {
       emailVerified: data['email_verified'] == true,
       phoneVerified: data['phone_verified'] == true,
       govtIdStatus: data['govt_id_status']?.toString() ?? 'none',
-      govtIdVerifiedAt:
-          DateTime.tryParse(data['govt_id_verified_at']?.toString() ?? ''),
+      govtIdVerifiedAt: DateTime.tryParse(
+        data['govt_id_verified_at']?.toString() ?? '',
+      ),
       verifiedRides: _asInt(data['verified_rides']) ?? 0,
       vehicleMake: data['vehicle_make']?.toString(),
       vehicleModel: data['vehicle_model']?.toString(),
@@ -109,21 +110,21 @@ class AppUser {
 
   /// Builds a column map for insert/update queries (nulls omitted).
   Map<String, dynamic> toJson() => {
-        if (email != null) 'email': email,
-        if (firstName != null) 'first_name': firstName,
-        if (lastName != null) 'last_name': lastName,
-        if (phone != null) 'phone': phone,
-        if (avatarUrl != null) 'avatar_url': avatarUrl,
-        'is_driver': isDriver,
-        'is_passenger': isPassenger,
-        if (bio != null) 'bio': bio,
-        'contact_preference': contactPreference,
-        if (vehicleMake != null) 'vehicle_make': vehicleMake,
-        if (vehicleModel != null) 'vehicle_model': vehicleModel,
-        if (vehicleColor != null) 'vehicle_color': vehicleColor,
-        if (vehiclePlate != null) 'vehicle_plate': vehiclePlate,
-        if (vehicleYear != null) 'vehicle_year': vehicleYear,
-      };
+    if (email != null) 'email': email,
+    if (firstName != null) 'first_name': firstName,
+    if (lastName != null) 'last_name': lastName,
+    if (phone != null) 'phone': phone,
+    if (avatarUrl != null) 'avatar_url': avatarUrl,
+    'is_driver': isDriver,
+    'is_passenger': isPassenger,
+    if (bio != null) 'bio': bio,
+    'contact_preference': contactPreference,
+    if (vehicleMake != null) 'vehicle_make': vehicleMake,
+    if (vehicleModel != null) 'vehicle_model': vehicleModel,
+    if (vehicleColor != null) 'vehicle_color': vehicleColor,
+    if (vehiclePlate != null) 'vehicle_plate': vehiclePlate,
+    if (vehicleYear != null) 'vehicle_year': vehicleYear,
+  };
 
   static Map<String, dynamic> _sanitize(Map<String, dynamic> json) =>
       Map<String, dynamic>.from(json);

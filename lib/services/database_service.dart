@@ -283,7 +283,6 @@ class DatabaseService {
       }
 
       final useSpatialSearch = originLatitude != null && afterDate != null;
-      debugPrint('searchRides mode: ${useSpatialSearch ? 'postgis' : 'text'}');
 
       if (useSpatialSearch) {
         return await _searchSpatialRides(
@@ -394,7 +393,6 @@ class DatabaseService {
         'searchRides response count: ${response.length}',
         name: 'DatabaseService.searchRides',
       );
-      debugPrint('searchRides response count: ${response.length}');
       return response
           .map((row) => Ride.fromJson(row))
           .where((ride) => ride.id.isNotEmpty)

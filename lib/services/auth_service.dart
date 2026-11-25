@@ -22,11 +22,7 @@ class AuthService {
       final response = await supabase.auth.signUp(
         email: email,
         password: password,
-        data: {
-          'first_name': firstName,
-          'last_name': lastName,
-          'phone': phone,
-        },
+        data: {'first_name': firstName, 'last_name': lastName, 'phone': phone},
       );
 
       if (response.user != null) {
@@ -36,7 +32,10 @@ class AuthService {
           'phone': phone,
         };
         if (updates.isNotEmpty) {
-          await supabase.from('profiles').update(updates).eq('id', response.user!.id);
+          await supabase
+              .from('profiles')
+              .update(updates)
+              .eq('id', response.user!.id);
         }
       }
 
@@ -119,7 +118,8 @@ class AuthService {
     if (lower.contains('already registered')) {
       return 'An account with this email already exists';
     }
-    if (lower.contains('email not confirmed') || lower.contains('email not verified')) {
+    if (lower.contains('email not confirmed') ||
+        lower.contains('email not verified')) {
       return 'Please verify your email before signing in';
     }
     return message;

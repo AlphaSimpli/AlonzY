@@ -128,17 +128,18 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           : Stack(
               children: [
                 Positioned.fill(
-                  child: AppMaps.createView(
-                    MapViewConfig(
-                      initialCenter: location,
-                      initialZoom: 16,
-                      showUserLocation: true,
-                      trackCameraPosition: true,
-                    ),
-                  ).build(
-                    onMapCreated: _onMapCreated,
-                    onMapIdle: _onCameraIdle,
-                  ),
+                  child:
+                      AppMaps.createView(
+                        MapViewConfig(
+                          initialCenter: location,
+                          initialZoom: 16,
+                          showUserLocation: true,
+                          trackCameraPosition: true,
+                        ),
+                      ).build(
+                        onMapCreated: _onMapCreated,
+                        onMapIdle: _onCameraIdle,
+                      ),
                 ),
 
                 // Animated centre pin.
@@ -236,7 +237,11 @@ class _CenterPin extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(Icons.location_on, color: AppColors.primary, size: 30),
+          child: const Icon(
+            Icons.location_on,
+            color: AppColors.primary,
+            size: 30,
+          ),
         ),
         Container(
           width: 4,
@@ -322,7 +327,10 @@ class _AddressCard extends StatelessWidget {
             Text(
               '${location.latitude.toStringAsFixed(5)}, '
               '${location.longitude.toStringAsFixed(5)}',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
           ],
         ],

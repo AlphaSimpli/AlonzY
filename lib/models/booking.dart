@@ -30,7 +30,9 @@ class Booking {
   });
 
   factory Booking.fromJson(Map<String, dynamic>? json) {
-    final data = json == null ? <String, dynamic>{} : Map<String, dynamic>.from(json);
+    final data = json == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(json);
     final rawRide = data['rides'] is Map
         ? Map<String, dynamic>.from(data['rides'] as Map)
         : null;
@@ -46,7 +48,8 @@ class Booking {
       pickupLocation: data['pickup_location']?.toString(),
       status: data['status']?.toString() ?? 'confirmed',
       createdAt:
-          DateTime.tryParse(data['created_at']?.toString() ?? '') ?? DateTime.now(),
+          DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+          DateTime.now(),
       ride: rawRide == null ? null : Ride.fromJson(rawRide),
       passenger: rawPassenger == null ? null : AppUser.fromJson(rawPassenger),
     );

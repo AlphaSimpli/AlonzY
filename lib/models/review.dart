@@ -19,7 +19,9 @@ class Review {
   });
 
   factory Review.fromJson(Map<String, dynamic>? json) {
-    final data = json == null ? <String, dynamic>{} : Map<String, dynamic>.from(json);
+    final data = json == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(json);
     return Review(
       id: data['id']?.toString() ?? '',
       rideId: data['ride_id']?.toString() ?? '',
@@ -28,7 +30,8 @@ class Review {
       rating: _asInt(data['rating']) ?? 5,
       comment: data['comment']?.toString(),
       createdAt:
-          DateTime.tryParse(data['created_at']?.toString() ?? '') ?? DateTime.now(),
+          DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 

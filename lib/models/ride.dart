@@ -78,22 +78,25 @@ class Ride {
   }
 
   factory Ride.fromJson(Map<String, dynamic>? json) {
-    final data = json == null ? <String, dynamic>{} : Map<String, dynamic>.from(json);
+    final data = json == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(json);
     final rawDriver = data['profiles'] is Map
         ? Map<String, dynamic>.from(data['profiles'] as Map)
         : null;
     return Ride(
       id: data['id']?.toString() ?? '',
       driverId: data['driver_id']?.toString() ?? '',
-          originCity: _safeCity(data['origin_city']),
-          originAddress: data['origin_address']?.toString() ?? '',
-          destinationCity: _safeCity(data['destination_city']),
-          destinationAddress: data['destination_address']?.toString() ?? '',
-          originLat: _asDouble(data['origin_lat']) ?? 0,
-          originLng: _asDouble(data['origin_lng']) ?? 0,
-          destinationLat: _asDouble(data['destination_lat']) ?? 0,
-          destinationLng: _asDouble(data['destination_lng']) ?? 0,
-      departureTime: DateTime.tryParse(data['departure_time']?.toString() ?? '') ??
+      originCity: _safeCity(data['origin_city']),
+      originAddress: data['origin_address']?.toString() ?? '',
+      destinationCity: _safeCity(data['destination_city']),
+      destinationAddress: data['destination_address']?.toString() ?? '',
+      originLat: _asDouble(data['origin_lat']) ?? 0,
+      originLng: _asDouble(data['origin_lng']) ?? 0,
+      destinationLat: _asDouble(data['destination_lat']) ?? 0,
+      destinationLng: _asDouble(data['destination_lng']) ?? 0,
+      departureTime:
+          DateTime.tryParse(data['departure_time']?.toString() ?? '') ??
           DateTime.now(),
       availableSeats: _asInt(data['available_seats']) ?? 0,
       pricePerSeat: _asDouble(data['price_per_seat']) ?? 0,

@@ -119,21 +119,19 @@ class _ChatListPageState extends State<ChatListPage> {
               ),
             )
           : _conversations.isEmpty
-              ? _EmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadConversations,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _conversations.length,
-                    itemBuilder: (context, index) =>
-                        _ConversationTile(
-                          conversation: _conversations[index],
-                          myId: _myId ?? '',
-                          onTap: () =>
-                              _openConversation(_conversations[index]),
-                        ),
-                  ),
+          ? _EmptyState()
+          : RefreshIndicator(
+              onRefresh: _loadConversations,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _conversations.length,
+                itemBuilder: (context, index) => _ConversationTile(
+                  conversation: _conversations[index],
+                  myId: _myId ?? '',
+                  onTap: () => _openConversation(_conversations[index]),
                 ),
+              ),
+            ),
     );
   }
 }
@@ -218,9 +216,9 @@ class _ConversationTile extends StatelessWidget {
         lastMessage?.isNotEmpty == true
             ? lastMessage!
             : (conversation.ride == null
-                ? strings.chatNoMessages
-                : '${conversation.ride!.originAddress} → '
-                  '${conversation.ride!.destinationAddress}'),
+                  ? strings.chatNoMessages
+                  : '${conversation.ride!.originAddress} → '
+                        '${conversation.ride!.destinationAddress}'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -244,8 +242,8 @@ class _ConversationTile extends StatelessWidget {
     if (diff.inHours < 1) return strings.chatMinutesAgo(diff.inMinutes);
     if (diff.inDays < 1) return strings.chatHoursAgo(diff.inHours);
     if (diff.inDays < 7) return strings.chatDaysAgo(diff.inDays);
-    return DateFormat.Md(Localizations.localeOf(context).toString()).format(
-      time,
-    );
+    return DateFormat.Md(
+      Localizations.localeOf(context).toString(),
+    ).format(time);
   }
 }

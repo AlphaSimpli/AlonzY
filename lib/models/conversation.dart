@@ -53,14 +53,16 @@ class Conversation {
   /// party that has not been read yet).
   bool hasUnread(String userId) {
     if (lastSenderId == userId) return false;
-    final lastRead =
-        userId == passengerId ? passengerLastReadAt : driverLastReadAt;
+    final lastRead = userId == passengerId
+        ? passengerLastReadAt
+        : driverLastReadAt;
     return lastRead == null || lastMessageAt.isAfter(lastRead);
   }
 
   factory Conversation.fromJson(Map<String, dynamic>? json) {
-    final data =
-        json == null ? <String, dynamic>{} : Map<String, dynamic>.from(json);
+    final data = json == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(json);
     final rawPassenger = data['passenger'] is Map
         ? Map<String, dynamic>.from(data['passenger'] as Map)
         : null;
@@ -77,16 +79,18 @@ class Conversation {
       driverId: data['driver_id']?.toString() ?? '',
       lastMessage: data['last_message']?.toString(),
       lastSenderId: data['last_sender_id']?.toString(),
-      lastMessageAt: DateTime.tryParse(
-              data['last_message_at']?.toString() ?? '') ??
+      lastMessageAt:
+          DateTime.tryParse(data['last_message_at']?.toString() ?? '') ??
           DateTime.now(),
       createdAt:
           DateTime.tryParse(data['created_at']?.toString() ?? '') ??
-              DateTime.now(),
+          DateTime.now(),
       passengerLastReadAt: DateTime.tryParse(
-          data['passenger_last_read_at']?.toString() ?? ''),
-      driverLastReadAt:
-          DateTime.tryParse(data['driver_last_read_at']?.toString() ?? ''),
+        data['passenger_last_read_at']?.toString() ?? '',
+      ),
+      driverLastReadAt: DateTime.tryParse(
+        data['driver_last_read_at']?.toString() ?? '',
+      ),
       passenger: rawPassenger == null ? null : AppUser.fromJson(rawPassenger),
       driver: rawDriver == null ? null : AppUser.fromJson(rawDriver),
       ride: rawRide == null ? null : Ride.fromJson(rawRide),

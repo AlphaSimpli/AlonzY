@@ -45,14 +45,14 @@ class LiveRideLocation {
   }
 
   Map<String, dynamic> toJson() => {
-        'ride_id': rideId,
-        'user_id': userId,
-        'latitude': latitude,
-        'longitude': longitude,
-        'speed_mps': speedMetersPerSecond,
-        'heading_degrees': headingDegrees,
-        'captured_at': capturedAt.toUtc().toIso8601String(),
-      };
+    'ride_id': rideId,
+    'user_id': userId,
+    'latitude': latitude,
+    'longitude': longitude,
+    'speed_mps': speedMetersPerSecond,
+    'heading_degrees': headingDegrees,
+    'captured_at': capturedAt.toUtc().toIso8601String(),
+  };
 
   static double? _asDouble(Object? value) {
     if (value is num) return value.toDouble();

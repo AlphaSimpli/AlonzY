@@ -24,7 +24,7 @@ class PlaceSuggestion {
 /// Forward and reverse geocoding are performed against the Nominatim
 /// (OpenStreetMap) service, which is free and requires no API key.
 class GeocodingService {
-  static const String _userAgent = 'Alonzy-App/1.0';
+  static const String _userAgent = 'AlonzY-App/1.0';
 
   /// The device's current position, or `null` if permission was denied or the
   /// lookup failed.
@@ -151,8 +151,9 @@ class GeocodingService {
 
   static bool _looksLikeInvalidCity(String value) {
     return RegExp(r'^\d+[\s-]').hasMatch(value) ||
-        RegExp(r'\b(street|st\.?|road|rd\.?|avenue|ave\.?|boulevard|blvd\.?)\b',
-                caseSensitive: false)
-            .hasMatch(value);
+        RegExp(
+          r'\b(street|st\.?|road|rd\.?|avenue|ave\.?|boulevard|blvd\.?)\b',
+          caseSensitive: false,
+        ).hasMatch(value);
   }
 }

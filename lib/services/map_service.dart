@@ -14,7 +14,7 @@ import '../maps/map_types.dart';
 /// - Animate the camera to a location or a set of bounds
 class MapService {
   MapService({required this.mapController, SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client;
+    : _supabase = supabase ?? Supabase.instance.client;
 
   final AppMapController mapController;
   final SupabaseClient _supabase;
@@ -39,7 +39,6 @@ class MapService {
       ),
     );
     _driverMarkerIds.add(driverId);
-    debugPrint('Added marker for driver $driverId');
   }
 
   /// Update an existing driver marker position (for real-time tracking).
@@ -68,14 +67,12 @@ class MapService {
         colorHex: '#4F46E5',
       ),
     );
-    debugPrint('Updated marker for driver $driverId');
   }
 
   /// Remove the marker for a specific driver.
   Future<void> removeDriverMarker(String driverId) async {
     await mapController.removeMarker(driverId);
     _driverMarkerIds.remove(driverId);
-    debugPrint('Removed marker for driver $driverId');
   }
 
   /// Add a marker for a ride location (pickup/drop-off).
@@ -94,7 +91,6 @@ class MapService {
         colorHex: color,
       ),
     );
-    debugPrint('Added $label marker at ($latitude, $longitude)');
   }
 
   /// Draw a polyline (route) through [waypoints].
@@ -106,7 +102,6 @@ class MapService {
     await mapController.addPolyline(
       MapPolylineData(points: waypoints, colorHex: color, width: width),
     );
-    debugPrint('Added route polyline with ${waypoints.length} waypoints');
   }
 
   /// Listen to real-time driver position updates from Supabase.
@@ -127,7 +122,7 @@ class MapService {
   RealtimeChannel subscribeToDriverUpdates({
     required String rideId,
     required void Function(double latitude, double longitude, String driverId)
-        onUpdate,
+    onUpdate,
   }) {
     final channel = _supabase.channel('driver-updates:$rideId');
 
@@ -145,8 +140,8 @@ class MapService {
             final newRecord = payload.newRecord;
             final driverId = newRecord['driver_id'] as String?;
             final latitude = (newRecord['driver_latitude'] as num?)?.toDouble();
-            final longitude =
-                (newRecord['driver_longitude'] as num?)?.toDouble();
+            final longitude = (newRecord['driver_longitude'] as num?)
+                ?.toDouble();
 
             if (driverId != null && latitude != null && longitude != null) {
               onUpdate(latitude, longitude, driverId);
@@ -154,9 +149,7 @@ class MapService {
           },
         )
         .subscribe((status, [error]) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('Subscribed to driver updates for ride $rideId');
-          } else if (status == RealtimeSubscribeStatus.channelError) {
+          if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('Channel error: $error');
           }
         });

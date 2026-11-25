@@ -12,9 +12,9 @@ class MapLocation {
   const MapLocation(this.latitude, this.longitude);
 
   Map<String, dynamic> toJson() => {
-        'latitude': latitude,
-        'longitude': longitude,
-      };
+    'latitude': latitude,
+    'longitude': longitude,
+  };
 
   @override
   bool operator ==(Object other) =>

@@ -1,8 +1,8 @@
-import tempfile
-import unittest
-import math
 import csv
 import json
+import math
+import tempfile
+import unittest
 from pathlib import Path
 
 from ml.train_matching_model import build_synthetic_dataset, train_and_export

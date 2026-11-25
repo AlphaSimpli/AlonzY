@@ -20,8 +20,8 @@ class RoutedRideSearch {
 /// full matching score: the current form has no preferred time or preferences.
 ///
 /// Uses one shared OSRM instance, preserving its rate limiter and route cache.
-/// The deliberately small prototype limit is enforced before any HTTP request;
-/// never silently truncate the database's shortlist or fabricate a fallback.
+/// The candidate limit is enforced before any HTTP request; never silently
+/// truncate the database shortlist or fabricate a fallback.
 class RideRoutingService {
   RideRoutingService({OsrmService? routingService})
     : _osrm = routingService ?? OsrmService(),

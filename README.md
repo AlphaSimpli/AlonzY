@@ -1,361 +1,171 @@
-# Supabase Flutter Ride-Sharing App
+<p align="center">
+  <img src="assets/images/alonzy_logo.png" alt="AlonzY carpooling" width="220">
+</p>
 
-A modern Flutter application for ride-sharing built with Supabase as the backend. Users can search for available rides, post rides they're offering, manage bookings, and handle driver-specific features all through an intuitive mobile interface.
+# AlonzY
 
-## 📱 Features
+**Urban and intercity carpooling, designed for the way people move across Canada.**
 
-- **User Authentication**: Secure login and signup with Supabase Auth
-- **Search Rides**: Find available rides by origin, destination, date, and price
-- **Post Rides**: Create and list rides you're offering
-- **Manage Bookings**: View and track your ride bookings as a passenger
-- **Driver Bookings**: Manage booking requests for rides you've posted
-- **User Profiles**: Manage personal profile information and preferences
-- **Real-Time Mapping**: MapLibre GL integration for location selection and ride tracking
-- **Geolocation**: Automatic location detection and geocoding
-- **Live Safety Track**: Opt-in GPS sharing with active ride participants through Supabase Realtime
+[English](README.md) · [Français](README.fr.md)
 
-## 🛠️ Tech Stack
+AlonzY connects passengers and drivers through location-aware ride discovery,
+transparent detour estimates, and privacy-conscious trip sharing. Its modular
+Flutter client is backed by Supabase, with routing and matching services that
+can evolve independently.
 
-- **Frontend**: Flutter with Material 3
-- **Backend**: Supabase (PostgreSQL + Auth)
-- **Maps & Location**:
-  - MapLibre GL (v0.20.0) with free OpenFreeMap tiles — no API keys required
-  - Geolocator (v9.0.0)
-  - Geocoding (Nominatim/OpenStreetMap)
-- **State Management**: Stream builders with Supabase real-time subscriptions
-- **Dart SDK**: ^3.11.4
+> **Project status:** an actively developed open-source platform. Review the
+> deployment and privacy notes below before using it with real trips or
+> personal data.
 
-## 🗺️ Map Architecture
+## Highlights
 
-The map layer is fully decoupled behind a provider-agnostic abstraction so it
-can be swapped without touching business logic:
+- **Geospatial discovery:** PostGIS narrows available rides by pickup radius,
+  date, seats, and price.
+- **Road-aware matching:** OSRM evaluates route detours for shortlisted rides;
+  deterministic rules remain the default ranking.
+- **Experimental learned ranking:** a transparent logistic model can be
+  enabled explicitly. Its bundled coefficients are trained on synthetic data,
+  so they are not evidence of real-world acceptance or production performance.
+- **Live trip sharing:** the driver and confirmed passengers can follow an
+  active trip with Supabase Realtime.
+- **External safety link:** explicit consent, a three-hour expiry, and immediate
+  revocation. The design supports privacy principles relevant to Québec's
+  **Law 25**; it is not a legal compliance certification.
+- **Bilingual experience:** French and English interface strings are maintained
+  together.
+- **Extensible maps:** MapLibre is behind a provider abstraction, keeping map
+  implementations replaceable.
 
+The application uses free/open map and routing services by default. OSRM's
+public demo endpoint is intended for light development use, not a production
+traffic commitment. Route coordinates are sent to the configured OSRM server;
+choose an appropriate endpoint for your deployment.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U[Passenger or driver] --> F[Flutter app<br/>Dart]
+    F -->|Auth, rides, bookings,<br/>chat and live updates| S[Supabase]
+    S --> DB[(PostgreSQL<br/>PostGIS)]
+    S --> RT[Realtime]
+    DB --> RLS[Row Level Security]
+    F -->|Candidate routes and detours| O[OSRM]
+    F -->|Explicitly enabled ranking| ML[Local learned-matching model]
+    ML -. optional training .-> PY[Python training pipeline]
+    S -. consented share token .-> T[Safety tracker<br/>GitHub Pages]
+    T -->|Token-scoped location and route| S
+    PY -. exported coefficients .-> ML
 ```
-lib/maps/
-├── map_types.dart        # MapLocation, MapMarkerData, MapPolylineData, MapViewConfig
-├── map_controller.dart   # AppMapController — abstract controller interface
-├── map_view.dart         # MapView — abstract widget interface
-├── app_maps.dart         # AppMaps — global provider registry
-└── providers/
-    └── maplibre/         # MapLibre implementation (default provider)
-```
 
-Screens request maps through `AppMaps.createView(...)` and interact only with
-`AppMapController`. To switch to Google Maps later, add a `GoogleMapProvider`
-under `providers/` and call `AppMaps.configure(provider)` once at startup.
+PostGIS performs the first-stage candidate search. OSRM then supplies road
+distance and duration estimates for the shortlisted routes. The optional
+Python pipeline trains and exports named logistic-regression coefficients;
+inference in the app is local. The tracker is a separate static page and never
+receives a Supabase service-role key.
 
-## 📦 Core Dependencies
-
-- `supabase_flutter: ^2.12.2` - Backend and real-time database
-- `maplibre_gl: ^0.20.0` - Map rendering and real-time driver tracking
-- `flutter_dotenv: ^5.1.0` - Environment configuration
-- `geolocator: ^9.0.0` - GPS and location services
-
-## 🚀 Getting Started
+## Quickstart
 
 ### Prerequisites
 
-- Flutter SDK 3.11.4 or higher
-- Dart 3.11.4 or higher
-- iOS 11.0+ or Android 5.0+
-- A Supabase project account
+- Flutter **3.41+** and Dart **3.11+**
+- A Supabase project and the [Supabase CLI](https://supabase.com/docs/guides/cli)
+- Python and `pip` for the matching-model tests or training tools
 
-### Installation
+### 1. Get the code and configure the app
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd supabase_flutter_app
-   ```
-
-2. **Install dependencies**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Configure Supabase Credentials**
-   - The app uses environment variables for secure credential management
-   - Update the `.env` file in the project root with your Supabase credentials:
-   ```
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-   - **Note**: The `.env` file is in `.gitignore` and will never be committed to version control
-
-4. **Set up iOS**
-   ```bash
-   cd ios
-   pod install
-   cd ..
-   ```
-
-5. **Configure Maps**
-   - MapLibre GL uses the free OpenFreeMap tile service by default and needs
-     **no API keys**. Location permissions are already configured in
-     `AndroidManifest.xml` and `Info.plist`.
-   - To switch providers later, implement a new `MapProvider` in `lib/maps/providers/`.
-
-6. **Run the app**
-   ```bash
-   flutter run
-   ```
-
-## 📁 Project Structure
-
-```
-lib/
-├── main.dart              # App entry point with authentication
-├── theme/                 # Material 3 design system (colors, typography)
-├── maps/                  # Decoupled map abstraction (MapLibre by default)
-├── models/                # Strongly-typed domain models (AppUser, Ride, Booking, Review)
-├── screens/               # UI screens
-│   ├── login_page.dart
-│   ├── signup_page.dart
-│   ├── home_page.dart
-│   ├── search_rides_page.dart
-│   ├── ride_details_page.dart
-│   ├── post_ride_page.dart
-│   ├── my_bookings_page.dart
-│   ├── driver_bookings_page.dart
-│   ├── chat_list_page.dart
-│   ├── chat_page.dart
-│   ├── edit_profile_page.dart
-│   ├── profile_page.dart
-│   ├── live_safety_track_screen.dart
-│   └── location_picker_screen.dart
-├── services/              # Business logic
-│   ├── auth_service.dart
-│   ├── database_service.dart
-│   ├── geocoding_service.dart
-│   ├── live_safety_service.dart
-│   └── map_service.dart
-└── widgets/               # Reusable UI components
-    ├── auth_layout.dart
-    ├── location_autocomplete_field.dart
-    └── verification_badges.dart
+```sh
+git clone https://github.com/AlphaSimpli/AlonzY.git
+cd AlonzY
+cp .env.example .env
 ```
 
-## 🔐 Security Features
+Edit `.env` with the project URL and **public anon/publishable key** from
+Supabase. Set `SAFETY_TRACKER_URL` to the deployed tracker page if external
+safety links are enabled. Never put a Supabase service-role key in the app or
+this file.
 
-### Environment Variables
-- Sensitive credentials (Supabase URL and API keys) are stored in `.env` file
-- Never hardcoded in source code
-- Loaded securely using `flutter_dotenv` at runtime
+### 2. Apply database migrations
 
-### Git Configuration
-- `.env` file is listed in `.gitignore`
-- No credentials will be accidentally pushed to version control
-- Recommended: Rotate Supabase keys after initial setup
+Use a development Supabase project, review the SQL migrations, then link and
+apply them:
 
-### Best Practices
-- Use Supabase Row-Level Security (RLS) policies for data protection
-- Implement proper authentication checks on all API calls
-- Validate user inputs before database operations
-
-## 📱 Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/home.png" width="300"/>
-  <img src="docs/screenshots/profile.png" width="300"/>
-</p>
-
-### Key Features Screenshots:
-- **Login Screen**: User authentication interface
-- **Home Page**: Main navigation hub
-- **Search Rides**: Ride discovery with filters
-- **Post Ride**: Create new ride listings
-- **Bookings**: Manage passenger and driver bookings
-- **Profile**: User profile management
-
-## 🔄 Real-Time Features
-
-The app leverages Supabase's real-time capabilities:
-- Live ride availability updates
-- Instant booking notifications
-- Real-time booking status changes
-- Live user profile synchronization
-
-## 🗄️ Database Schema
-
-Key tables in Supabase:
-- `profiles` - User profile information (bio, contact preference, vehicle details, verification status)
-- `rides` - Available rides posted by drivers (policies: pets, luggage, instant vs. approval booking)
-- `bookings` - Passenger ride bookings (pending → confirmed / rejected lifecycle)
-- `reviews` - Post-trip driver ratings (auto-averaged into `profiles.rating`)
-- `conversations` / `chat_messages` - Private driver-passenger real-time chat (RLS-protected)
-- `ride_routes` - Detailed route information with locations
-
-See `supabase/migrations/` for the schema. All three migrations must be applied:
-
-```bash
-# 001 - initial schema (profiles, rides, bookings, RLS)
-# 002 - production enhancements:
-#   - profiles: bio, contact_preference, vehicle details, nullable email (phone login)
-#   - rides: vehicle_make/model/color, pets_allowed, luggage_policy
-#   - reviews table + automatic driver rating aggregation
-#   - server-side seat accounting + overbooking protection triggers
-# 003 - chat & verification:
-#   - email/phone verification flags synced from auth.users, govt ID status
-#   - vehicle_year, verified_rides (completed trip counter)
-#   - rides.instant_booking + pending/rejected booking lifecycle
-#   - conversations + chat_messages tables with participant-only RLS and
-#     realtime replication (chat_messages, conversations)
+```sh
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push --linked
 ```
 
-### Live Safety Track
+The migrations configure the schema, PostGIS search, booking and matching
+workflows, row-level security, and safety-sharing functions. Do not apply
+unreviewed migrations to a production project.
 
-Apply [`supabase/migrations/20261027000100_live_safety_track.sql`](supabase/migrations/20261027000100_live_safety_track.sql)
-to add the participant-protected `ride_live_locations` table and enable its
-Supabase Realtime publication. The tracking page is
-[`lib/screens/live_safety_track_screen.dart`](lib/screens/live_safety_track_screen.dart);
-the reusable GPS and Realtime service is
-[`lib/services/live_safety_service.dart`](lib/services/live_safety_service.dart).
+### 3. Run the Flutter app
 
-Location sharing is explicit and can be stopped by the user. RLS permits access
-only to the driver and confirmed passengers while the ride status is
-`in_progress`. The separate external safety-contact link is opt-in and
-documented in [`LIVE_SAFETY_TRACK.md`](LIVE_SAFETY_TRACK.md), which covers
-deployment, permissions, background behavior, and retention.
-
-## 💬 Real-Time Chat
-
-- Threads are created automatically from ride details, bookings and driver
-  booking management ("Message" actions).
-- Messages stream in via Supabase Realtime; conversations show the last
-  message preview with unread indicators and per-user read timestamps.
-- RLS restricts every conversation and message to its two participants.
-
-## 🛡️ User Verification
-
-- Email and phone verification are synced automatically from `auth.users`
-  confirmation state into `profiles`.
-- Government ID verification can be requested in Profile & Settings
-  (`govt_id_status`: none → pending → verified by support).
-- Badges (email / phone / government ID) appear on profiles, driver cards
-  and in chat headers. `verified_rides` counts completed trips per driver.
-
-## ⚙️ Configuration
-
-### Supabase Setup
-1. Create a Supabase project
-2. Set up authentication methods (email/password, and optionally phone with an SMS provider)
-3. Apply both migrations from `supabase/migrations/`
-4. Enable Row-Level Security (RLS) policies
-5. Generate anon and service role keys
-
-### Environment Variables
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_anonymous_key
+```sh
+flutter pub get
+flutter run
 ```
 
-## 🧪 Testing
+Location access depends on platform permissions and device settings.
 
-Run tests with:
-```bash
+### 4. Run tests and the optional ML tools
+
+```sh
+flutter analyze
 flutter test
+
+python3 -m venv .venv-ml
+source .venv-ml/bin/activate
+python -m pip install -r ml/requirements.txt pytest
+pytest -q
 ```
 
-### Matching benchmarks and model evaluation
+The training script uses synthetic data by default. To export a model without
+overwriting the bundled coefficients:
 
-Run the real OSRM table benchmark with:
-
-```bash
-python3 scripts/benchmark_osrm.py
+```sh
+python ml/train_matching_model.py --output /tmp/alonzy-model.json
 ```
 
-It measures matrix batching, HTTP, response parsing, and detour calculation
-for 10, 50, and 100 fixed Gatineau–Ottawa candidates, then writes
-`docs/benchmarks_osrm.json`. The timing excludes Supabase search and Flutter
-rendering; the public OSRM demo has no latency SLA. Set `OSRM_BASE_URL` to a
-dedicated routing server for repeatable performance measurements.
+For real feedback exports, follow the script's CSV/JSON schema and review
+privacy and data-governance requirements before training or sharing data.
 
-The matching model's deterministic synthetic evaluation is:
+## Repository map
 
-```bash
-python3 ml/train_matching_model.py
+```text
+lib/
+  l10n/          English/French resources and generated localization
+  maps/          Provider-neutral map interfaces and MapLibre provider
+  models/        Typed ride, booking, profile and matching models
+  screens/       Flutter application screens and trip flows
+  services/      Supabase access, routing, matching and safety services
+  widgets/       Reusable interface components
+ml/              Python training pipeline and bundled model coefficients
+supabase/
+  migrations/    Versioned PostgreSQL, PostGIS, RLS and workflow changes
+test/            Flutter and Python regression tests
+web_tracker/     Static external safety-tracking page
+docs/            Routing benchmark data and supporting references
 ```
 
-To evaluate labeled exports from `match_feedback` instead, provide CSV or JSON
-data containing `detour_min`, `time_gap_min`, `pref_score`, `price`,
-`rule_score`, and `accepted`:
+## Roadmap
 
-```bash
-python3 ml/train_matching_model.py \
-  --feedback-data path/to/match_feedback.csv \
-  --output path/to/model_metrics.json
-```
+Planned directions, subject to community feedback and operational readiness:
 
-Rows without an `accepted` label are excluded. Logistic regression and the
-rule-score baseline are measured on the same stratified test split.
+- Evaluate matching quality with consented, representative feedback and
+  passenger-separated validation before changing the default ranking.
+- Support configurable, production-grade routing endpoints and observability.
+- Expand accessibility, localization, and platform-specific trip experiences.
+- Improve contributor documentation and automated checks as the project grows.
 
-## 🚢 Deployment
+## Contributing
 
-### iOS
-```bash
-flutter build ios
-```
+Issues and pull requests are welcome. Before opening a pull request, run
+`dart format .`, `flutter analyze`, `flutter test`, and `pytest -q` when Python
+code is affected. Keep French and English localization keys and placeholders
+in sync, and include focused tests for behavior changes.
 
-### Android
-```bash
-flutter build apk
-# or for App Bundle
-flutter build appbundle
-```
-
-### Web
-```bash
-flutter build web
-```
-
-## 📝 Development Guidelines
-
-- Follow [Dart Style Guide](https://dart.dev/guides/language/effective-dart/style)
-- Use meaningful variable and function names
-- Add comments for complex logic
-- Keep widget files focused and modular
-- Use const constructors where applicable
-
-## 🐛 Troubleshooting
-
-### App crashes on startup
-- Verify `.env` file exists in project root
-- Check Supabase URL and API key validity
-- Ensure Flutter is up to date: `flutter upgrade`
-
-### Map not showing
-- Verify Google Maps API keys are correctly configured
-- Check API is enabled in Google Cloud Console
-- Ensure proper permissions are set in platform-specific files
-
-### Location permissions denied
-- Check app permissions in device settings
-- Ensure `Info.plist` (iOS) and `AndroidManifest.xml` (Android) have location permissions
-- Test on physical device (emulator may have issues)
-
-## 🔄 Future Improvements
-
-- [ ] Payment integration
-- [ ] In-app messaging between users
-- [ ] Ride rating and review system
-- [ ] Advanced search filters
-- [ ] Offline mode support
-- [ ] Push notifications
-- [ ] Social media authentication
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 👨‍💻 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📧 Support
-
-For questions or support, please open an issue in the repository.
-
----
-
-**Last Updated**: May 1, 2026  
-**Version**: 1.0.0
+For security-sensitive reports, see [SECURITY.md](SECURITY.md). See
+[LICENSE](LICENSE) for reuse terms and [LIVE_SAFETY_TRACK.md](LIVE_SAFETY_TRACK.md)
+for tracker deployment and privacy details.

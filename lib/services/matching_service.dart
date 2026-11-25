@@ -6,12 +6,13 @@ import 'road_route_service.dart';
 import 'osrm_service.dart';
 
 /// Optional predictor, independent from model loading and Flutter assets.
-typedef LearnedMatchPredictor = double Function({
-  required double detourMinutes,
-  required int timeGapMinutes,
-  required double preferenceScore,
-  required double price,
-});
+typedef LearnedMatchPredictor =
+    double Function({
+      required double detourMinutes,
+      required int timeGapMinutes,
+      required double preferenceScore,
+      required double price,
+    });
 
 /// Smart matching engine that evaluates an offer against a passenger request.
 ///
@@ -348,9 +349,8 @@ class HybridRideMatch {
   final double? learnedProbability;
 
   /// Both ranking modes use a 0..100 scale; [match.score] stays the rule score.
-  double get rankingScore => learnedProbability == null
-      ? match.score
-      : learnedProbability! * 100.0;
+  double get rankingScore =>
+      learnedProbability == null ? match.score : learnedProbability! * 100.0;
 
   bool get usesLearnedScore => learnedProbability != null;
 }

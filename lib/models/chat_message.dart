@@ -15,8 +15,9 @@ class ChatMessage {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic>? json) {
-    final data =
-        json == null ? <String, dynamic>{} : Map<String, dynamic>.from(json);
+    final data = json == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(json);
     return ChatMessage(
       id: data['id']?.toString() ?? '',
       conversationId: data['conversation_id']?.toString() ?? '',
@@ -24,7 +25,7 @@ class ChatMessage {
       message: data['message']?.toString() ?? '',
       createdAt:
           DateTime.tryParse(data['created_at']?.toString() ?? '') ??
-              DateTime.now(),
+          DateTime.now(),
     );
   }
 }

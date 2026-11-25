@@ -540,7 +540,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Connectez-vous pour trouver ou proposer votre prochain trajet.';
 
   @override
-  String get newToAlonzy => 'Nouveau sur Alonzy ?';
+  String get newToAlonzy => 'Nouveau sur AlonzY ?';
 
   @override
   String get createAnAccount => 'Créer un compte';
@@ -684,7 +684,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String searchRoadHelp(int limit, int km) {
-    return 'Sélectionnez les deux adresses suggérées et une date. Les coordonnées du passager et des offres sont envoyées au serveur OSRM public et peuvent être journalisées. Prototype : au plus $limit offres présélectionnées et $km km de détour supplémentaire. Estimations sans trafic en temps réel.';
+    return 'Sélectionnez les deux adresses suggérées et une date. Les coordonnées du passager et des offres sont envoyées au serveur OSRM public et peuvent être journalisées. Classement expérimental : au plus $limit offres présélectionnées et $km km de détour supplémentaire. Les estimations ne tiennent pas compte du trafic en temps réel.';
   }
 
   @override
