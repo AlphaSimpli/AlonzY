@@ -730,6 +730,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchRejectMatch => 'Decline this suggestion';
 
   @override
+  String get searchLearnedToggle => 'Use the learned model (experimental)';
+
+  @override
+  String get searchLearnedHelp =>
+      'Ranks offers with the learned model while keeping the same exclusions. The experimental score is not a real-world acceptance probability.';
+
+  @override
+  String get searchLearnedSyntheticNotice =>
+      'This model was trained only on synthetic data. Its performance with real users has not been established.';
+
+  @override
+  String get searchLearnedLoading => 'Loading the experimental model…';
+
+  @override
+  String get searchLearnedFailed =>
+      'The experimental model is unavailable. Retry or disable this option to use the rules. No substitute ranking has been displayed.';
+
+  @override
+  String searchLearnedResults(int count, int excluded) {
+    return 'Experimental learned-model ranking, with the same exclusions as rule-based ranking. Offers retained: $count. Offers not retained: $excluded.';
+  }
+
+  @override
+  String searchLearnedScore(String score) {
+    return 'Experimental model score: $score/100';
+  }
+
+  @override
+  String searchRuleDetour(int minutes, int score) {
+    return '$minutes min detour · rule score: $score/100';
+  }
+
+  @override
   String get profileSettingsTitle => 'Profile & Settings';
 
   @override

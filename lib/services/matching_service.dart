@@ -5,6 +5,14 @@ import '../models/ride.dart';
 import 'road_route_service.dart';
 import 'osrm_service.dart';
 
+/// Optional predictor, independent from model loading and Flutter assets.
+typedef LearnedMatchPredictor = double Function({
+  required double detourMinutes,
+  required int timeGapMinutes,
+  required double preferenceScore,
+  required double price,
+});
+
 /// Smart matching engine that evaluates an offer against a passenger request.
 ///
 /// The synchronous method keeps the original pure-Dart Haversine baseline.
@@ -47,14 +55,16 @@ class MatchingService {
   double calculatePreferenceScore(RideOffer offer, PassengerRequest request) =>
       _calculatePreferenceScore(offer, request);
 
-  /// Performs the database-prefiltered candidate matching with one OSRM table
-  /// request, then applies the same deterministic scoring rules as other flows.
+  /// Performs database-prefiltered candidate matching with OSRM table requests.
+  /// Rules always determine eligibility and remain the default ranking.
+  /// An explicit predictor can change ranking without overwriting rule scores.
   Future<HybridRideSearch> rankRides({
     required List<Ride> candidates,
     required PassengerRequest request,
     required OsrmCoordinate pickup,
     required OsrmCoordinate dropoff,
     required RoadRouteService routingService,
+    LearnedMatchPredictor? learnedPredictor,
   }) async {
     final snapshot = List<Ride>.of(candidates);
     if (snapshot.isEmpty) {
@@ -87,18 +97,34 @@ class MatchingService {
         detourKm: detour.extraDistanceKm,
       );
       if (result.isEligible) {
+        final preferenceScore = calculatePreferenceScore(offer, request);
+        final learnedProbability = learnedPredictor?.call(
+          detourMinutes: detour.extraDurationMinutes,
+          timeGapMinutes: result.timeDifferenceMinutes,
+          preferenceScore: preferenceScore,
+          price: ride.pricePerSeat,
+        );
+        if (learnedProbability != null &&
+            (!learnedProbability.isFinite ||
+                learnedProbability < 0 ||
+                learnedProbability > 1)) {
+          throw StateError(
+            'The learned predictor must return a value in [0, 1].',
+          );
+        }
         matches.add(
           HybridRideMatch(
             ride: ride,
             detour: detour,
             match: result,
-            preferenceScore: calculatePreferenceScore(offer, request),
+            preferenceScore: preferenceScore,
+            learnedProbability: learnedProbability,
           ),
         );
       }
     }
     matches.sort((a, b) {
-      final byScore = b.match.score.compareTo(a.match.score);
+      final byScore = b.rankingScore.compareTo(a.rankingScore);
       if (byScore != 0) return byScore;
       final byDetour = a.detour.extraDurationSeconds.compareTo(
         b.detour.extraDurationSeconds,
@@ -310,12 +336,23 @@ class HybridRideMatch {
     required this.detour,
     required this.match,
     required this.preferenceScore,
+    this.learnedProbability,
   });
 
   final Ride ride;
   final RoadRouteDetour detour;
   final MatchingResult match;
   final double preferenceScore;
+
+  /// Optional logistic output, not a calibrated real-user acceptance rate.
+  final double? learnedProbability;
+
+  /// Both ranking modes use a 0..100 scale; [match.score] stays the rule score.
+  double get rankingScore => learnedProbability == null
+      ? match.score
+      : learnedProbability! * 100.0;
+
+  bool get usesLearnedScore => learnedProbability != null;
 }
 
 class HybridRideSearch {
